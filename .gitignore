@@ -1,2 +1,7 @@
 *.pyc
 
+# Python coverage
+algo-py/.coverage
+
+# C++ build outputs
+algo-cpp/build/
