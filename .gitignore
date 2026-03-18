@@ -2,6 +2,7 @@
 
 # Python coverage
 algo-py/.coverage
+.coverage
 
 # C++ build outputs
 algo-cpp/build/
