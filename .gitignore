@@ -6,3 +6,6 @@ algo-py/.coverage
 
 # C++ build outputs
 algo-cpp/build/
+
+# Editor config (keep locally only)
+.vscode/
