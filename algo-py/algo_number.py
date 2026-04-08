@@ -28,8 +28,8 @@ def Sum2(nums: list[int], target: int) -> tuple[int, int] | None:
         seen[x] = i
         
 if __name__ == "__main__":
-    nums = [2, 7, 11, 15]
-    target = 9
+    nums = [2, 7, 11, 15, 22]
+    target = 18
     print(Sum(nums, target))
     print(Sum2(nums, target))
     
