@@ -1,0 +1,802 @@
+[
+  {
+    "group": "哈希",
+    "id": "1",
+    "title_cn": "两数之和",
+    "title_en": "Two Sum",
+    "slug": "two-sum",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "哈希",
+    "id": "49",
+    "title_cn": "字母异位词分组",
+    "title_en": "Group Anagrams",
+    "slug": "group-anagrams",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "哈希",
+    "id": "128",
+    "title_cn": "最长连续序列",
+    "title_en": "Longest Consecutive Sequence",
+    "slug": "longest-consecutive-sequence",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "双指针",
+    "id": "283",
+    "title_cn": "移动零",
+    "title_en": "Move Zeroes",
+    "slug": "move-zeroes",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "双指针",
+    "id": "11",
+    "title_cn": "盛最多水的容器",
+    "title_en": "Container With Most Water",
+    "slug": "container-with-most-water",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "双指针",
+    "id": "15",
+    "title_cn": "三数之和",
+    "title_en": "3Sum",
+    "slug": "3sum",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "双指针",
+    "id": "42",
+    "title_cn": "接雨水",
+    "title_en": "Trapping Rain Water",
+    "slug": "trapping-rain-water",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "滑动窗口",
+    "id": "3",
+    "title_cn": "无重复字符的最长子串",
+    "title_en": "Longest Substring Without Repeating Characters",
+    "slug": "longest-substring-without-repeating-characters",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "滑动窗口",
+    "id": "438",
+    "title_cn": "找到字符串中所有字母异位词",
+    "title_en": "Find All Anagrams in a String",
+    "slug": "find-all-anagrams-in-a-string",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "子串",
+    "id": "560",
+    "title_cn": "和为 K 的子数组",
+    "title_en": "Subarray Sum Equals K",
+    "slug": "subarray-sum-equals-k",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "子串",
+    "id": "239",
+    "title_cn": "滑动窗口最大值",
+    "title_en": "Sliding Window Maximum",
+    "slug": "sliding-window-maximum",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "子串",
+    "id": "76",
+    "title_cn": "最小覆盖子串",
+    "title_en": "Minimum Window Substring",
+    "slug": "minimum-window-substring",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "普通数组",
+    "id": "53",
+    "title_cn": "最大子数组和",
+    "title_en": "Maximum Subarray",
+    "slug": "maximum-subarray",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "普通数组",
+    "id": "56",
+    "title_cn": "合并区间",
+    "title_en": "Merge Intervals",
+    "slug": "merge-intervals",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "普通数组",
+    "id": "189",
+    "title_cn": "轮转数组",
+    "title_en": "Rotate Array",
+    "slug": "rotate-array",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "普通数组",
+    "id": "238",
+    "title_cn": "除了自身以外数组的乘积",
+    "title_en": "Product of Array Except Self",
+    "slug": "product-of-array-except-self",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "普通数组",
+    "id": "41",
+    "title_cn": "缺失的第一个正数",
+    "title_en": "First Missing Positive",
+    "slug": "first-missing-positive",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "矩阵",
+    "id": "73",
+    "title_cn": "矩阵置零",
+    "title_en": "Set Matrix Zeroes",
+    "slug": "set-matrix-zeroes",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "矩阵",
+    "id": "54",
+    "title_cn": "螺旋矩阵",
+    "title_en": "Spiral Matrix",
+    "slug": "spiral-matrix",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "矩阵",
+    "id": "48",
+    "title_cn": "旋转图像",
+    "title_en": "Rotate Image",
+    "slug": "rotate-image",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "矩阵",
+    "id": "240",
+    "title_cn": "搜索二维矩阵 II",
+    "title_en": "Search a 2D Matrix II",
+    "slug": "search-a-2d-matrix-ii",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "链表",
+    "id": "160",
+    "title_cn": "相交链表",
+    "title_en": "Intersection of Two Linked Lists",
+    "slug": "intersection-of-two-linked-lists",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "链表",
+    "id": "206",
+    "title_cn": "反转链表",
+    "title_en": "Reverse Linked List",
+    "slug": "reverse-linked-list",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "链表",
+    "id": "234",
+    "title_cn": "回文链表",
+    "title_en": "Palindrome Linked List",
+    "slug": "palindrome-linked-list",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "链表",
+    "id": "141",
+    "title_cn": "环形链表",
+    "title_en": "Linked List Cycle",
+    "slug": "linked-list-cycle",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "链表",
+    "id": "142",
+    "title_cn": "环形链表 II",
+    "title_en": "Linked List Cycle II",
+    "slug": "linked-list-cycle-ii",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "链表",
+    "id": "21",
+    "title_cn": "合并两个有序链表",
+    "title_en": "Merge Two Sorted Lists",
+    "slug": "merge-two-sorted-lists",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "链表",
+    "id": "2",
+    "title_cn": "两数相加",
+    "title_en": "Add Two Numbers",
+    "slug": "add-two-numbers",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "链表",
+    "id": "19",
+    "title_cn": "删除链表的倒数第 N 个结点",
+    "title_en": "Remove Nth Node From End of List",
+    "slug": "remove-nth-node-from-end-of-list",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "链表",
+    "id": "24",
+    "title_cn": "两两交换链表中的节点",
+    "title_en": "Swap Nodes in Pairs",
+    "slug": "swap-nodes-in-pairs",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "链表",
+    "id": "25",
+    "title_cn": "K 个一组翻转链表",
+    "title_en": "Reverse Nodes in k-Group",
+    "slug": "reverse-nodes-in-k-group",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "链表",
+    "id": "138",
+    "title_cn": "随机链表的复制",
+    "title_en": "Copy List with Random Pointer",
+    "slug": "copy-list-with-random-pointer",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "链表",
+    "id": "148",
+    "title_cn": "排序链表",
+    "title_en": "Sort List",
+    "slug": "sort-list",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "链表",
+    "id": "23",
+    "title_cn": "合并 K 个升序链表",
+    "title_en": "Merge k Sorted Lists",
+    "slug": "merge-k-sorted-lists",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "链表",
+    "id": "146",
+    "title_cn": "LRU 缓存",
+    "title_en": "LRU Cache",
+    "slug": "lru-cache",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二叉树",
+    "id": "94",
+    "title_cn": "二叉树的中序遍历",
+    "title_en": "Binary Tree Inorder Traversal",
+    "slug": "binary-tree-inorder-traversal",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "二叉树",
+    "id": "104",
+    "title_cn": "二叉树的最大深度",
+    "title_en": "Maximum Depth of Binary Tree",
+    "slug": "maximum-depth-of-binary-tree",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "二叉树",
+    "id": "226",
+    "title_cn": "翻转二叉树",
+    "title_en": "Invert Binary Tree",
+    "slug": "invert-binary-tree",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "二叉树",
+    "id": "101",
+    "title_cn": "对称二叉树",
+    "title_en": "Symmetric Tree",
+    "slug": "symmetric-tree",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "二叉树",
+    "id": "543",
+    "title_cn": "二叉树的直径",
+    "title_en": "Diameter of Binary Tree",
+    "slug": "diameter-of-binary-tree",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "二叉树",
+    "id": "102",
+    "title_cn": "二叉树的层序遍历",
+    "title_en": "Binary Tree Level Order Traversal",
+    "slug": "binary-tree-level-order-traversal",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二叉树",
+    "id": "108",
+    "title_cn": "将有序数组转换为二叉搜索树",
+    "title_en": "Convert Sorted Array to Binary Search Tree",
+    "slug": "convert-sorted-array-to-binary-search-tree",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "二叉树",
+    "id": "98",
+    "title_cn": "验证二叉搜索树",
+    "title_en": "Validate Binary Search Tree",
+    "slug": "validate-binary-search-tree",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二叉树",
+    "id": "230",
+    "title_cn": "二叉搜索树中第 K 小的元素",
+    "title_en": "Kth Smallest Element in a BST",
+    "slug": "kth-smallest-element-in-a-bst",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二叉树",
+    "id": "199",
+    "title_cn": "二叉树的右视图",
+    "title_en": "Binary Tree Right Side View",
+    "slug": "binary-tree-right-side-view",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二叉树",
+    "id": "114",
+    "title_cn": "二叉树展开为链表",
+    "title_en": "Flatten Binary Tree to Linked List",
+    "slug": "flatten-binary-tree-to-linked-list",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二叉树",
+    "id": "105",
+    "title_cn": "从前序与中序遍历序列构造二叉树",
+    "title_en": "Construct Binary Tree from Preorder and Inorder Traversal",
+    "slug": "construct-binary-tree-from-preorder-and-inorder-traversal",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二叉树",
+    "id": "437",
+    "title_cn": "路径总和 III",
+    "title_en": "Path Sum III",
+    "slug": "path-sum-iii",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二叉树",
+    "id": "236",
+    "title_cn": "二叉树的最近公共祖先",
+    "title_en": "Lowest Common Ancestor of a Binary Tree",
+    "slug": "lowest-common-ancestor-of-a-binary-tree",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二叉树",
+    "id": "124",
+    "title_cn": "二叉树中的最大路径和",
+    "title_en": "Binary Tree Maximum Path Sum",
+    "slug": "binary-tree-maximum-path-sum",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "图论",
+    "id": "200",
+    "title_cn": "岛屿数量",
+    "title_en": "Number of Islands",
+    "slug": "number-of-islands",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "图论",
+    "id": "994",
+    "title_cn": "腐烂的橘子",
+    "title_en": "Rotting Oranges",
+    "slug": "rotting-oranges",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "图论",
+    "id": "207",
+    "title_cn": "课程表",
+    "title_en": "Course Schedule",
+    "slug": "course-schedule",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "图论",
+    "id": "208",
+    "title_cn": "实现 Trie (前缀树)",
+    "title_en": "Implement Trie (Prefix Tree)",
+    "slug": "implement-trie-prefix-tree",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "回溯",
+    "id": "46",
+    "title_cn": "全排列",
+    "title_en": "Permutations",
+    "slug": "permutations",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "回溯",
+    "id": "78",
+    "title_cn": "子集",
+    "title_en": "Subsets",
+    "slug": "subsets",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "回溯",
+    "id": "17",
+    "title_cn": "电话号码的字母组合",
+    "title_en": "Letter Combinations of a Phone Number",
+    "slug": "letter-combinations-of-a-phone-number",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "回溯",
+    "id": "39",
+    "title_cn": "组合总和",
+    "title_en": "Combination Sum",
+    "slug": "combination-sum",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "回溯",
+    "id": "22",
+    "title_cn": "括号生成",
+    "title_en": "Generate Parentheses",
+    "slug": "generate-parentheses",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "回溯",
+    "id": "79",
+    "title_cn": "单词搜索",
+    "title_en": "Word Search",
+    "slug": "word-search",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "回溯",
+    "id": "131",
+    "title_cn": "分割回文串",
+    "title_en": "Palindrome Partitioning",
+    "slug": "palindrome-partitioning",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "回溯",
+    "id": "51",
+    "title_cn": "N 皇后",
+    "title_en": "N-Queens",
+    "slug": "n-queens",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "二分查找",
+    "id": "35",
+    "title_cn": "搜索插入位置",
+    "title_en": "Search Insert Position",
+    "slug": "search-insert-position",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "二分查找",
+    "id": "74",
+    "title_cn": "搜索二维矩阵",
+    "title_en": "Search a 2D Matrix",
+    "slug": "search-a-2d-matrix",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二分查找",
+    "id": "34",
+    "title_cn": "在排序数组中查找元素的第一个和最后一个位置",
+    "title_en": "Find First and Last Position of Element in Sorted Array",
+    "slug": "find-first-and-last-position-of-element-in-sorted-array",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二分查找",
+    "id": "33",
+    "title_cn": "搜索旋转排序数组",
+    "title_en": "Search in Rotated Sorted Array",
+    "slug": "search-in-rotated-sorted-array",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二分查找",
+    "id": "153",
+    "title_cn": "寻找旋转排序数组中的最小值",
+    "title_en": "Find Minimum in Rotated Sorted Array",
+    "slug": "find-minimum-in-rotated-sorted-array",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "二分查找",
+    "id": "4",
+    "title_cn": "寻找两个正序数组的中位数",
+    "title_en": "Median of Two Sorted Arrays",
+    "slug": "median-of-two-sorted-arrays",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "栈",
+    "id": "20",
+    "title_cn": "有效的括号",
+    "title_en": "Valid Parentheses",
+    "slug": "valid-parentheses",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "栈",
+    "id": "155",
+    "title_cn": "最小栈",
+    "title_en": "Min Stack",
+    "slug": "min-stack",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "栈",
+    "id": "394",
+    "title_cn": "字符串解码",
+    "title_en": "Decode String",
+    "slug": "decode-string",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "栈",
+    "id": "739",
+    "title_cn": "每日温度",
+    "title_en": "Daily Temperatures",
+    "slug": "daily-temperatures",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "栈",
+    "id": "84",
+    "title_cn": "柱状图中最大的矩形",
+    "title_en": "Largest Rectangle in Histogram",
+    "slug": "largest-rectangle-in-histogram",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "堆",
+    "id": "215",
+    "title_cn": "数组中的第K个最大元素",
+    "title_en": "Kth Largest Element in an Array",
+    "slug": "kth-largest-element-in-an-array",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "堆",
+    "id": "347",
+    "title_cn": "前 K 个高频元素",
+    "title_en": "Top K Frequent Elements",
+    "slug": "top-k-frequent-elements",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "堆",
+    "id": "295",
+    "title_cn": "数据流的中位数",
+    "title_en": "Find Median from Data Stream",
+    "slug": "find-median-from-data-stream",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "贪心算法",
+    "id": "121",
+    "title_cn": "买卖股票的最佳时机",
+    "title_en": "Best Time to Buy and Sell Stock",
+    "slug": "best-time-to-buy-and-sell-stock",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "贪心算法",
+    "id": "55",
+    "title_cn": "跳跃游戏",
+    "title_en": "Jump Game",
+    "slug": "jump-game",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "贪心算法",
+    "id": "45",
+    "title_cn": "跳跃游戏 II",
+    "title_en": "Jump Game II",
+    "slug": "jump-game-ii",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "贪心算法",
+    "id": "763",
+    "title_cn": "划分字母区间",
+    "title_en": "Partition Labels",
+    "slug": "partition-labels",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "动态规划",
+    "id": "70",
+    "title_cn": "爬楼梯",
+    "title_en": "Climbing Stairs",
+    "slug": "climbing-stairs",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "动态规划",
+    "id": "118",
+    "title_cn": "杨辉三角",
+    "title_en": "Pascal's Triangle",
+    "slug": "pascals-triangle",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "动态规划",
+    "id": "198",
+    "title_cn": "打家劫舍",
+    "title_en": "House Robber",
+    "slug": "house-robber",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "动态规划",
+    "id": "279",
+    "title_cn": "完全平方数",
+    "title_en": "Perfect Squares",
+    "slug": "perfect-squares",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "动态规划",
+    "id": "322",
+    "title_cn": "零钱兑换",
+    "title_en": "Coin Change",
+    "slug": "coin-change",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "动态规划",
+    "id": "139",
+    "title_cn": "单词拆分",
+    "title_en": "Word Break",
+    "slug": "word-break",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "动态规划",
+    "id": "300",
+    "title_cn": "最长递增子序列",
+    "title_en": "Longest Increasing Subsequence",
+    "slug": "longest-increasing-subsequence",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "动态规划",
+    "id": "152",
+    "title_cn": "乘积最大子数组",
+    "title_en": "Maximum Product Subarray",
+    "slug": "maximum-product-subarray",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "动态规划",
+    "id": "416",
+    "title_cn": "分割等和子集",
+    "title_en": "Partition Equal Subset Sum",
+    "slug": "partition-equal-subset-sum",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "动态规划",
+    "id": "32",
+    "title_cn": "最长有效括号",
+    "title_en": "Longest Valid Parentheses",
+    "slug": "longest-valid-parentheses",
+    "difficulty": "HARD"
+  },
+  {
+    "group": "多维动态规划",
+    "id": "62",
+    "title_cn": "不同路径",
+    "title_en": "Unique Paths",
+    "slug": "unique-paths",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "多维动态规划",
+    "id": "64",
+    "title_cn": "最小路径和",
+    "title_en": "Minimum Path Sum",
+    "slug": "minimum-path-sum",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "多维动态规划",
+    "id": "5",
+    "title_cn": "最长回文子串",
+    "title_en": "Longest Palindromic Substring",
+    "slug": "longest-palindromic-substring",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "多维动态规划",
+    "id": "1143",
+    "title_cn": "最长公共子序列",
+    "title_en": "Longest Common Subsequence",
+    "slug": "longest-common-subsequence",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "多维动态规划",
+    "id": "72",
+    "title_cn": "编辑距离",
+    "title_en": "Edit Distance",
+    "slug": "edit-distance",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "技巧",
+    "id": "136",
+    "title_cn": "只出现一次的数字",
+    "title_en": "Single Number",
+    "slug": "single-number",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "技巧",
+    "id": "169",
+    "title_cn": "多数元素",
+    "title_en": "Majority Element",
+    "slug": "majority-element",
+    "difficulty": "EASY"
+  },
+  {
+    "group": "技巧",
+    "id": "75",
+    "title_cn": "颜色分类",
+    "title_en": "Sort Colors",
+    "slug": "sort-colors",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "技巧",
+    "id": "31",
+    "title_cn": "下一个排列",
+    "title_en": "Next Permutation",
+    "slug": "next-permutation",
+    "difficulty": "MEDIUM"
+  },
+  {
+    "group": "技巧",
+    "id": "287",
+    "title_cn": "寻找重复数",
+    "title_en": "Find the Duplicate Number",
+    "slug": "find-the-duplicate-number",
+    "difficulty": "MEDIUM"
+  }
+]
