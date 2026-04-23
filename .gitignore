@@ -12,3 +12,4 @@ algo-cpp/build/
 
 # Editor config (keep locally only)
 .vscode/
+.cursor/
