@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SRE 稳定性洞察报告</title>
+<style>
+  :root {
+    --primary: #1a237e; --blue: #1565c0; --orange: #e65100;
+    --green: #2e7d32; --purple: #6a1b9a; --teal: #00695c;
+    --red: #c62828; --bg: #fafafa; --card-bg: #fff;
+    --text: #333; --text-secondary: #666; --border: #e0e0e0;
+    --shadow: 0 2px 14px rgba(0,0,0,0.06); --radius: 10px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: #f0f2f5; color: var(--text); line-height: 1.85; font-size: 15px;
+  }
+
+  .cover {
+    background: linear-gradient(135deg, #0d1b3e 0%, #1a237e 35%, #1565c0 100%);
+    color: #fff; padding: 90px 60px 70px; text-align: center; position: relative; overflow: hidden;
+  }
+  .cover::before {
+    content: ''; position: absolute; top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle at 25% 75%, rgba(255,255,255,0.06) 0%, transparent 50%),
+                radial-gradient(circle at 75% 25%, rgba(255,255,255,0.04) 0%, transparent 50%);
+  }
+  .cover h1 { font-size: 34px; font-weight: 800; letter-spacing: 2px; position: relative; z-index: 1; }
+  .cover .subtitle { font-size: 15px; opacity: 0.82; margin-top: 14px; position: relative; z-index: 1; }
+  .cover .meta { font-size: 12px; opacity: 0.55; margin-top: 36px; position: relative; z-index: 1; }
+  .cover .divider { width: 60px; height: 3px; background: rgba(255,255,255,0.4); margin: 20px auto; position: relative; z-index: 1; }
+
+  .container { max-width: 980px; margin: 0 auto; padding: 36px 24px; }
+
+  .toc {
+    background: var(--card-bg); border-radius: var(--radius);
+    padding: 30px 36px; margin-bottom: 36px; box-shadow: var(--shadow);
+  }
+  .toc h2 { font-size: 19px; color: var(--primary); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #e8eaf6; }
+  .toc ul { list-style: none; columns: 2; column-gap: 36px; }
+  .toc li { padding: 5px 0; font-size: 13px; break-inside: avoid; }
+  .toc li a { color: var(--blue); text-decoration: none; }
+  .toc li a:hover { text-decoration: underline; }
+  .toc .toc-chapter { font-weight: 700; color: var(--primary); margin-top: 4px; font-size: 14px; }
+
+  section { margin-bottom: 48px; }
+  h2 { font-size: 24px; color: var(--primary); margin-bottom: 18px; padding-bottom: 8px; border-bottom: 3px solid #e8eaf6; display: flex; align-items: center; gap: 10px; }
+  h2 .num { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; background: var(--primary); color: #fff; border-radius: 8px; font-size: 15px; font-weight: 700; flex-shrink: 0; }
+  h3 { font-size: 19px; color: #283593; margin: 26px 0 11px; padding-left: 12px; border-left: 4px solid var(--blue); }
+  h4 { font-size: 16px; color: #37474f; margin: 18px 0 8px; }
+
+  .card {
+    background: var(--card-bg); border-radius: var(--radius);
+    padding: 22px 26px; margin-bottom: 18px; box-shadow: var(--shadow);
+    border-left: 4px solid var(--blue);
+  }
+  .card.orange { border-left-color: var(--orange); }
+  .card.green { border-left-color: var(--green); }
+  .card.purple { border-left-color: var(--purple); }
+  .card.teal { border-left-color: var(--teal); }
+  .card.red { border-left-color: var(--red); }
+  .card h4 { margin-top: 0; font-size: 16px; }
+
+  table {
+    width: 100%; border-collapse: collapse; margin: 14px 0 22px;
+    font-size: 13.5px; background: var(--card-bg); border-radius: var(--radius);
+    overflow: hidden; box-shadow: var(--shadow);
+  }
+  thead { background: linear-gradient(135deg, #1a237e, #283593); color: #fff; }
+  th { padding: 11px 15px; text-align: left; font-weight: 600; font-size: 12.5px; letter-spacing: 0.5px; }
+  td { padding: 10px 15px; border-bottom: 1px solid #f2f2f2; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8f9ff; }
+  .hl td { background: #e8f5e9 !important; font-weight: 600; }
+
+  .info-box {
+    border-radius: 8px; padding: 14px 18px; margin: 14px 0;
+    font-size: 13.5px; line-height: 1.75;
+  }
+  .info-box.blue { background: #e3f2fd; border-left: 4px solid var(--blue); }
+  .info-box.warn { background: #fff3e0; border-left-color: var(--orange); }
+  .info-box.success { background: #e8f5e9; border-left-color: var(--green); }
+
+  .phase-tag {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 11px; font-weight: 600;
+  }
+  .phase-tag.pre { background: #e3f2fd; color: #1565c0; }
+  .phase-tag.mid { background: #fff3e0; color: #e65100; }
+  .phase-tag.post { background: #e8f5e9; color: #2e7d32; }
+
+  .phase-flow { display: flex; gap: 14px; margin: 20px 0; flex-wrap: wrap; }
+  .phase-flow .phase {
+    flex: 1; min-width: 190px; border-radius: var(--radius);
+    padding: 18px 16px; box-shadow: var(--shadow);
+  }
+  .phase-flow .phase.pre { background: linear-gradient(135deg, #e8f0fe, #cce0ff); }
+  .phase-flow .phase.mid { background: linear-gradient(135deg, #fff8e8, #ffe4c0); }
+  .phase-flow .phase.post { background: linear-gradient(135deg, #e8f5e9, #c8e6c9); }
+  .phase-flow .phase h4 { margin: 0 0 10px; font-size: 16px; }
+  .phase-flow .phase ul { list-style: none; padding: 0; font-size: 12.5px; }
+  .phase-flow .phase li { padding: 3px 0; padding-left: 12px; position: relative; }
+  .phase-flow .phase li::before { content: '▸'; position: absolute; left: 0; }
+
+  .mtbx-timeline {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin: 20px 0; padding: 16px 12px; background: var(--card-bg);
+    border-radius: var(--radius); box-shadow: var(--shadow); flex-wrap: wrap; gap: 4px;
+  }
+  .mtbx-step { text-align: center; flex: 1; min-width: 85px; padding: 10px 6px; border-radius: 8px; background: #f8f9ff; position: relative; }
+  .mtbx-step .label { font-size: 11px; font-weight: 700; color: var(--primary); margin-bottom: 3px; }
+  .mtbx-step .name { font-size: 10px; color: var(--text-secondary); margin-bottom: 3px; }
+  .mtbx-step .time { font-size: 17px; font-weight: 800; color: var(--blue); }
+  .mtbx-step .goal { font-size: 10px; color: #999; margin-top: 2px; }
+  .mtbx-arrow { display: flex; align-items: center; color: #bdbdbd; font-size: 18px; flex-shrink: 0; padding-top: 18px; }
+
+  .company-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 18px 0; }
+  .company-badge { display: inline-block; padding: 4px 14px; border-radius: 14px; font-size: 13px; font-weight: 700; color: #fff; margin-right: 6px; }
+  .badge-tx { background: #1976d2; }
+  .badge-al { background: #ff6f00; }
+  .badge-xs { background: #e91e63; }
+  .badge-dy { background: #00bfa5; }
+  .badge-ks { background: #ff5722; }
+  .badge-aws { background: #ff9900; }
+
+  footer { text-align: center; padding: 36px 24px; color: #999; font-size: 12px; border-top: 1px solid #e0e0e0; margin-top: 50px; }
+
+  .ref-list { font-size: 13px; color: var(--text-secondary); line-height: 2; }
+  .ref-list li { margin-bottom: 4px; }
+
+  @media print {
+    body { background: #fff; }
+    .cover { padding: 50px 30px 40px; }
+    .container { max-width: 100%; }
+    .card, table { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <h1>SRE 稳定性洞察报告</h1>
+  <div class="divider"></div>
+  <div class="subtitle">理论框架与业界实践 &mdash; 腾讯 &middot; 阿里 &middot; 小红书 &middot; 抖音 &middot; 快手 &middot; AWS</div>
+  <div class="meta">技术报告 v2.0 &nbsp;|&nbsp; 2026 年 7 月</div>
+</div>
+
+<!-- TOC -->
+<div class="container">
+<div class="toc">
+  <h2>目 录</h2>
+  <ul>
+    <li class="toc-chapter">一、基础指标</li>
+    <li><a href="#s1.1">1.1 可用性等级：SLA 99.9% &rarr; 99.99%</a></li>
+    <li><a href="#s1.2">1.2 故障时间线：MTTD / MTTE / MTTI / MTTR</a></li>
+    <li class="toc-chapter">二、理论框架</li>
+    <li><a href="#s2.0">2.0 三阶段全景图</a></li>
+    <li><a href="#s2.1">2.1 事前：故障注入 &middot; 故障演练 &middot; 故障画像</a></li>
+    <li><a href="#s2.2">2.2 事中：指标采集 &middot; 告警策略 &middot; 告警通知</a></li>
+    <li><a href="#s2.3">2.3 事后：故障复盘 &middot; 架构巡检 &middot; 架构治理</a></li>
+    <li class="toc-chapter">三、业界实践</li>
+    <li><a href="#s3.1">3.1 腾讯：玄图 SRE 体系</a></li>
+    <li><a href="#s3.2">3.2 阿里巴巴：全栈高可用 AHAS</a></li>
+    <li><a href="#s3.3">3.3 小红书：跨云多活 + 智能可观测</a></li>
+    <li><a href="#s3.4">3.4 抖音（字节跳动）：混沌工程 + Rhino 压测</a></li>
+    <li><a href="#s3.5">3.5 快手：低成本常态化稳定性</a></li>
+    <li><a href="#s3.6">3.6 AWS：韧性生命周期框架</a></li>
+    <li class="toc-chapter">四、参考资料</li>
+    <li><a href="#s4">参考链接与文献</a></li>
+  </ul>
+</div>
+
+<!-- ====== CHAPTER 1: 基础指标 ====== -->
+<section>
+  <h2><span class="num">一</span> 基础指标</h2>
+
+  <h3 id="s1.1">1.1 可用性等级：SLA 99.9% &rarr; 99.99%</h3>
+  <p>可用性（Availability）是 SRE 最核心的量化指标。每提升"半个九"，不仅是数字的变化，更意味着恢复手段和组织能力的根本性跃迁。</p>
+
+  <table>
+    <thead>
+      <tr><th>可用性</th><th>俗称</th><th>年停机</th><th>月停机</th><th>周停机</th><th>典型恢复手段</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>99.9%</strong></td><td>三个九</td><td>8h 46min</td><td>43min 50s</td><td>10min 5s</td><td>人工 On-Call + Runbook</td></tr>
+      <tr><td><strong>99.95%</strong></td><td>三个半九</td><td>4h 23min</td><td>21min 55s</td><td>5min 2s</td><td>自动回滚 / 限流熔断</td></tr>
+      <tr class="hl"><td><strong>99.99%</strong></td><td>四个九</td><td>52min 36s</td><td>4min 23s</td><td>1min 0.5s</td><td>多活自愈 / 故障自转移</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-box warn">
+    <strong>关键认知：</strong>从 99.9% 到 99.99%，年允许停机从 8.8 小时骤降至 52 分钟。如果单次故障从检测到恢复至少需要 6 分钟（MTTD 1min + MTTE 5min），全年仅允许约 8 次故障。人的响应速度在此阈值下已无法满足要求，必须依赖全链路自动化自愈。99.99% 要求的不是"更快的 on-call"，而是<strong>不需要 on-call</strong>。
+  </div>
+
+  <h3 id="s1.2">1.2 故障时间线：MTTD / MTTE / MTTI / MTTR</h3>
+  <p>故障生命周期可拆解为多个阶段，每一阶段对应一个 MTTx 指标，共同构成恢复时间的完整链路。</p>
+
+  <div class="mtbx-timeline">
+    <div class="mtbx-step"><div class="label">MTTD</div><div class="name">Detect</div><div class="time">~1 min</div><div class="goal">故障感知</div></div>
+    <div class="mtbx-arrow">&rarr;</div>
+    <div class="mtbx-step"><div class="label">MTTE</div><div class="name">Engage</div><div class="time">~5 min</div><div class="goal">人员响应</div></div>
+    <div class="mtbx-arrow">&rarr;</div>
+    <div class="mtbx-step"><div class="label">MTTI</div><div class="name">Identify</div><div class="time">~10 min</div><div class="goal">根因定位</div></div>
+    <div class="mtbx-arrow">&rarr;</div>
+    <div class="mtbx-step"><div class="label">MTTF</div><div class="name">Fix</div><div class="time">~30 min</div><div class="goal">修复恢复</div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th style="width:12%">指标</th><th>全称</th><th>含义</th><th>依赖能力</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>MTBF</td><td>Mean Time Between Failures</td><td>平均故障间隔，衡量系统可靠性</td><td>架构韧性、变更质量</td></tr>
+      <tr><td>MTTD</td><td>Mean Time to Detect</td><td>从故障发生到系统感知</td><td>监控覆盖度、探活/拨测机制</td></tr>
+      <tr><td>MTTE</td><td>Mean Time to Engage</td><td>从感知到人员确认并介入响应</td><td>On-Call 机制、告警有效性</td></tr>
+      <tr><td>MTTI</td><td>Mean Time to Identify</td><td>从响应到确定根因</td><td>可观测性（Log/Metric/Trace）</td></tr>
+      <tr><td>MTTF/MTTR</td><td>Mean Time to Fix / Resolve</td><td>从定位到恢复服务</td><td>Runbook、自动化止损、回滚</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-box blue">
+    <strong>广义 MTTR = MTTD + MTTE + MTTI + MTTF</strong><br>
+    SRE 的核心目标：提升 MTBF（降低故障频率）、降低 MTTR（缩短恢复时长）。二者乘积决定最终可用性水平。Google SRE 的原则是优先缩短 MTTR，而非盲目追求零故障。
+  </div>
+</section>
+
+<!-- ====== CHAPTER 2: 理论框架 ====== -->
+<section>
+  <h2><span class="num">二</span> 理论框架</h2>
+
+  <h3 id="s2.0">2.0 三阶段全景图</h3>
+  <p>SRE 稳定性保障围绕"事前预防 &rarr; 事中发现与响应 &rarr; 事后复盘与改进"三阶段展开，形成持续改进闭环。</p>
+
+  <div style="background:var(--card-bg);border-radius:var(--radius);padding:20px;margin:16px 0 24px;box-shadow:var(--shadow);text-align:center;overflow-x:auto;">
+    <svg viewBox="0 0 680 520" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;">
+      <defs>
+        <linearGradient id="sbg1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#e3f2fd;stop-opacity:1"/>
+          <stop offset="100%" style="stop-color:#bbdefb;stop-opacity:1"/>
+        </linearGradient>
+        <linearGradient id="sbg2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#fff3e0;stop-opacity:1"/>
+          <stop offset="100%" style="stop-color:#ffe0b2;stop-opacity:1"/>
+        </linearGradient>
+        <linearGradient id="sbg3" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#e8f5e9;stop-opacity:1"/>
+          <stop offset="100%" style="stop-color:#c8e6c9;stop-opacity:1"/>
+        </linearGradient>
+        <filter id="ssh">
+          <feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.12"/>
+        </filter>
+      </defs>
+      <rect x="0" y="0" width="680" height="520" rx="12" fill="#fafafa"/>
+      <text x="340" y="36" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="700" fill="#1a237e">SRE 稳定性保障三阶段体系</text>
+
+      <!-- 事前 -->
+      <rect x="30" y="55" width="196" height="200" rx="10" fill="url(#sbg1)" filter="url(#ssh)" stroke="#64b5f6" stroke-width="1.5"/>
+      <rect x="30" y="55" width="196" height="36" rx="10" fill="#1976d2"/>
+      <rect x="30" y="79" width="196" height="12" fill="#1976d2"/>
+      <text x="128" y="79" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#fff">事前 · 预防</text>
+      <text x="128" y="112" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#1565c0">预防胜于救火</text>
+      <rect x="44" y="122" width="168" height="26" rx="5" fill="#fff" opacity="0.9"/>
+      <text x="52" y="139" font-family="sans-serif" font-size="11" font-weight="600" fill="#333">故障注入</text>
+      <text x="116" y="141" font-family="sans-serif" font-size="9" fill="#666">Chaos Engineering</text>
+      <rect x="44" y="152" width="168" height="26" rx="5" fill="#fff" opacity="0.9"/>
+      <text x="52" y="169" font-family="sans-serif" font-size="11" font-weight="600" fill="#333">故障演练</text>
+      <text x="116" y="170" font-family="sans-serif" font-size="9" fill="#666">红蓝对抗 / 桌面推演</text>
+      <rect x="44" y="182" width="168" height="26" rx="5" fill="#fff" opacity="0.9"/>
+      <text x="52" y="199" font-family="sans-serif" font-size="11" font-weight="600" fill="#333">故障画像</text>
+      <text x="116" y="200" font-family="sans-serif" font-size="9" fill="#666">风险热力图 / 薄弱点</text>
+      <text x="128" y="225" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#90a4ae">+ 容量规划 / 压测 / 变更管理</text>
+      <text x="128" y="238" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#90a4ae">+ 依赖梳理 / 降级预案 / 限流熔断</text>
+
+      <!-- 事中 -->
+      <rect x="242" y="55" width="196" height="200" rx="10" fill="url(#sbg2)" filter="url(#ssh)" stroke="#ffb74d" stroke-width="1.5"/>
+      <rect x="242" y="55" width="196" height="36" rx="10" fill="#f57c00"/>
+      <rect x="242" y="79" width="196" height="12" fill="#f57c00"/>
+      <text x="340" y="79" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#fff">事中 · 发现与响应</text>
+      <text x="340" y="112" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#e65100">快速感知，精准响应</text>
+      <rect x="256" y="122" width="168" height="26" rx="5" fill="#fff" opacity="0.9"/>
+      <text x="264" y="139" font-family="sans-serif" font-size="11" font-weight="600" fill="#333">指标采集</text>
+      <text x="328" y="140" font-family="sans-serif" font-size="9" fill="#666">Metrics / Logs / Traces</text>
+      <rect x="256" y="152" width="168" height="26" rx="5" fill="#fff" opacity="0.9"/>
+      <text x="264" y="169" font-family="sans-serif" font-size="11" font-weight="600" fill="#333">告警策略</text>
+      <text x="328" y="170" font-family="sans-serif" font-size="9" fill="#666">阈值 / 趋势 / 复合规则</text>
+      <rect x="256" y="182" width="168" height="26" rx="5" fill="#fff" opacity="0.9"/>
+      <text x="264" y="199" font-family="sans-serif" font-size="11" font-weight="600" fill="#333">告警通知</text>
+      <text x="328" y="200" font-family="sans-serif" font-size="9" fill="#666">分级 / 升级 / 抑制 / 静默</text>
+      <text x="340" y="225" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#90a4ae">+ 故障止损三板斧：回滚 / 降级 / 切流</text>
+      <text x="340" y="238" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#90a4ae">+ 应急响应流程 / War Room</text>
+
+      <!-- 事后 -->
+      <rect x="454" y="55" width="196" height="200" rx="10" fill="url(#sbg3)" filter="url(#ssh)" stroke="#81c784" stroke-width="1.5"/>
+      <rect x="454" y="55" width="196" height="36" rx="10" fill="#388e3c"/>
+      <rect x="454" y="79" width="196" height="12" fill="#388e3c"/>
+      <text x="552" y="79" text-anchor="middle" font-family="sans-serif" font-size="15" font-weight="700" fill="#fff">事后 · 复盘与改进</text>
+      <text x="552" y="112" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#2e7d32">不贰过，持续收敛</text>
+      <rect x="468" y="122" width="168" height="26" rx="5" fill="#fff" opacity="0.9"/>
+      <text x="476" y="139" font-family="sans-serif" font-size="11" font-weight="600" fill="#333">架构巡检</text>
+      <text x="540" y="140" font-family="sans-serif" font-size="9" fill="#666">单点 / 容量 / 依赖健康度</text>
+      <rect x="468" y="152" width="168" height="26" rx="5" fill="#fff" opacity="0.9"/>
+      <text x="476" y="169" font-family="sans-serif" font-size="11" font-weight="600" fill="#333">架构治理</text>
+      <text x="540" y="170" font-family="sans-serif" font-size="9" fill="#666">弱依赖消除 / 标准化</text>
+      <rect x="468" y="182" width="168" height="26" rx="5" fill="#fff" opacity="0.9"/>
+      <text x="476" y="199" font-family="sans-serif" font-size="11" font-weight="600" fill="#333">故障复盘</text>
+      <text x="540" y="200" font-family="sans-serif" font-size="9" fill="#666">Postmortem / RCA</text>
+      <text x="552" y="225" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#90a4ae">+ Action Items 闭环追踪</text>
+      <text x="552" y="238" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#90a4ae">+ Runbook 完善 / 知识沉淀</text>
+
+      <!-- 底部循环 -->
+      <rect x="30" y="270" width="620" height="55" rx="8" fill="#f3e5f5" opacity="0.6" stroke="#ce93d8" stroke-width="1" stroke-dasharray="5,3"/>
+      <text x="340" y="292" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#6a1b9a">持续改进闭环</text>
+      <text x="340" y="312" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#7b1fa2">事前预防 → 事中快速恢复 → 事后复盘改进 → 反哺事前画像与预案</text>
+
+      <!-- 细化表 -->
+      <text x="30" y="348" font-family="sans-serif" font-size="11" font-weight="700" fill="#333">每个阶段的细化动作：</text>
+      <rect x="30" y="358" width="196" height="28" rx="4" fill="#e3f2fd"/>
+      <text x="42" y="376" font-family="sans-serif" font-size="10" font-weight="600" fill="#1565c0">故障注入</text>
+      <text x="100" y="376" font-family="sans-serif" font-size="9" fill="#555">CPU 占满 / 网络延迟 / 磁盘满 / 进程杀</text>
+      <rect x="30" y="389" width="196" height="28" rx="4" fill="#e3f2fd"/>
+      <text x="42" y="407" font-family="sans-serif" font-size="10" font-weight="600" fill="#1565c0">故障演练</text>
+      <text x="100" y="407" font-family="sans-serif" font-size="9" fill="#555">实战攻防 / 断网 / 宕机 / 红蓝对抗</text>
+      <rect x="30" y="420" width="196" height="28" rx="4" fill="#e3f2fd"/>
+      <text x="42" y="438" font-family="sans-serif" font-size="10" font-weight="600" fill="#1565c0">故障画像</text>
+      <text x="100" y="438" font-family="sans-serif" font-size="9" fill="#555">历史故障分类 / 高发热力图 / 薄弱环节TopN</text>
+      <rect x="242" y="358" width="196" height="28" rx="4" fill="#fff3e0"/>
+      <text x="254" y="376" font-family="sans-serif" font-size="10" font-weight="600" fill="#e65100">指标采集</text>
+      <text x="312" y="376" font-family="sans-serif" font-size="9" fill="#555">Prometheus / Grafana / ELK / Jaeger</text>
+      <rect x="242" y="389" width="196" height="28" rx="4" fill="#fff3e0"/>
+      <text x="254" y="407" font-family="sans-serif" font-size="10" font-weight="600" fill="#e65100">告警策略</text>
+      <text x="312" y="407" font-family="sans-serif" font-size="9" fill="#555">P0~P4 分级 / 复合条件 / 收敛降噪</text>
+      <rect x="242" y="420" width="196" height="28" rx="4" fill="#fff3e0"/>
+      <text x="254" y="438" font-family="sans-serif" font-size="10" font-weight="600" fill="#e65100">告警通知</text>
+      <text x="312" y="438" font-family="sans-serif" font-size="9" fill="#555">即时通讯 / 电话 / PagerDuty / 升级链</text>
+      <rect x="454" y="358" width="196" height="28" rx="4" fill="#e8f5e9"/>
+      <text x="466" y="376" font-family="sans-serif" font-size="10" font-weight="600" fill="#2e7d32">架构巡检</text>
+      <text x="524" y="376" font-family="sans-serif" font-size="9" fill="#555">单点风险 / 容量水位 / 依赖健康状况</text>
+      <rect x="454" y="389" width="196" height="28" rx="4" fill="#e8f5e9"/>
+      <text x="466" y="407" font-family="sans-serif" font-size="10" font-weight="600" fill="#2e7d32">架构治理</text>
+      <text x="524" y="407" font-family="sans-serif" font-size="9" fill="#555">去单点 / 强弱依赖解耦 / 标准化建设</text>
+      <rect x="454" y="420" width="196" height="28" rx="4" fill="#e8f5e9"/>
+      <text x="466" y="438" font-family="sans-serif" font-size="10" font-weight="600" fill="#2e7d32">Postmortem</text>
+      <text x="524" y="438" font-family="sans-serif" font-size="9" fill="#555">5 Why / 时间线 / Action Items 追踪</text>
+      <text x="340" y="482" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#bdbdbd">SRE 稳定性保障体系 v1.0 — 2026.07.06</text>
+    </svg>
+  </div>
+
+  <h3 id="s2.1">2.1 事前预防</h3>
+  <div class="phase-flow">
+    <div class="phase pre">
+      <h4><span class="phase-tag pre">事前</span> 故障注入</h4>
+      <ul>
+        <li>CPU/内存/磁盘/网络故障注入</li>
+        <li>进程 Kill、Pod 驱逐</li>
+        <li>依赖超时、异常返回</li>
+        <li>Chaos Engineering 方法论</li>
+      </ul>
+    </div>
+    <div class="phase pre">
+      <h4><span class="phase-tag pre">事前</span> 故障演练</h4>
+      <ul>
+        <li>红蓝对抗实战攻防</li>
+        <li>桌面推演 &amp; 突袭演练</li>
+        <li>全链路压测验证容量</li>
+        <li>强弱依赖分析 &amp; 降级验证</li>
+      </ul>
+    </div>
+    <div class="phase pre">
+      <h4><span class="phase-tag pre">事前</span> 故障画像</h4>
+      <ul>
+        <li>历史故障分类统计</li>
+        <li>风险热力图绘制</li>
+        <li>薄弱环节 Top-N 识别</li>
+        <li>反哺演练场景设计</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-box blue">
+    <strong>逻辑闭环：</strong>故障画像提供高风险场景 &rarr; 驱动故障注入/演练靶向验证 &rarr; 暴露问题加固 &rarr; 更新故障画像。这是一个<strong>持续迭代</strong>的正向飞轮。
+  </div>
+
+  <h3 id="s2.2">2.2 事中发现与响应</h3>
+  <div class="phase-flow">
+    <div class="phase mid">
+      <h4><span class="phase-tag mid">事中</span> 指标采集</h4>
+      <ul>
+        <li>Metrics（Prometheus/Grafana）</li>
+        <li>Logs（ELK / Loki）</li>
+        <li>Traces（Jaeger / Zipkin）</li>
+        <li>OpenTelemetry 统一标准</li>
+      </ul>
+    </div>
+    <div class="phase mid">
+      <h4><span class="phase-tag mid">事中</span> 告警策略</h4>
+      <ul>
+        <li>P0~P4 分级体系</li>
+        <li>阈值 + 趋势 + 复合规则</li>
+        <li>告警收敛与降噪</li>
+        <li>静态/动态阈值基线</li>
+      </ul>
+    </div>
+    <div class="phase mid">
+      <h4><span class="phase-tag mid">事中</span> 告警通知</h4>
+      <ul>
+        <li>即时通讯（企微/钉钉/Slack）</li>
+        <li>电话/PagerDuty 升级链</li>
+        <li>告警抑制 &amp; 静默时段</li>
+        <li>War Room 应急响应</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-box warn">
+    <strong>止损优先于根因：</strong>Google SRE 核心原则 &mdash; 先恢复服务，再分析根因。事中阶段必须配套标准化止损动作：<strong>回滚、降级、切流</strong>（"三板斧"），而非仅依赖人工定位问题。
+  </div>
+
+  <h3 id="s2.3">2.3 事后复盘与改进</h3>
+  <div class="phase-flow">
+    <div class="phase post">
+      <h4><span class="phase-tag post">事后</span> 故障复盘</h4>
+      <ul>
+        <li>Postmortem 无责文化</li>
+        <li>5-Why / 鱼骨图 RCA</li>
+        <li>故障时间线还原</li>
+        <li>Action Items 闭环追踪</li>
+      </ul>
+    </div>
+    <div class="phase post">
+      <h4><span class="phase-tag post">事后</span> 架构巡检</h4>
+      <ul>
+        <li>单点风险扫描</li>
+        <li>容量水位评估</li>
+        <li>依赖健康度检查</li>
+        <li>配置一致性审计</li>
+      </ul>
+    </div>
+    <div class="phase post">
+      <h4><span class="phase-tag post">事后</span> 架构治理</h4>
+      <ul>
+        <li>去单点/强弱依赖解耦</li>
+        <li>标准化 &amp; 白屏化建设</li>
+        <li>Runbook 完善与沉淀</li>
+        <li>变更三板斧落地</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-box success">
+    <strong>持续改进闭环：</strong>事前预防 &rarr; 事中快速恢复 &rarr; 事后复盘改进 &rarr; 反哺事前画像与预案。每一次故障都不白发生，每一次改进都沉淀为组织能力。
+  </div>
+</section>
+
+<!-- ====== CHAPTER 3: 业界实践 ====== -->
+<section>
+  <h2><span class="num">三</span> 业界实践</h2>
+  <p>以下按理论框架的三阶段（事前 &rarr; 事中 &rarr; 事后）视角，剖析六家企业的 SRE 实践体系。</p>
+
+  <!-- 3.1 腾讯 -->
+  <h3 id="s3.1"><span class="company-badge badge-tx">腾讯</span> 玄图 SRE 体系</h3>
+
+  <div class="card">
+    <h4>体系概览</h4>
+    <p>腾讯 IEG（互动娱乐事业群）构建了<strong>玄图-SRE 稳定性建设全景图</strong>，以蓝鲸编排平台为底座，围绕"提升 MTBF、降低 MTTR"双目标展开。首创 SRE 8 大准则，将 MTTR 细化为 MTTI、MTTA、MTTL、MTTT、MTTV 五步骤。核心依赖"三位一体"工具链：<strong>可观测性平台 + 混沌实验平台 + 全链路压测+ 平台</strong>。</p>
+  </div>
+
+  <h4>事前：混沌实验 + 全链路压测</h4>
+  <table>
+    <thead><tr><th style="width:20%">平台</th><th>核心技术</th><th>关键能力</th></tr></thead>
+    <tbody>
+      <tr><td><strong>混沌实验平台</strong></td><td>ChaosMesh + ChaosBlade</td><td>27 种故障原子，覆盖主机+K8s；拖拉拽编排；红蓝对抗常态化；效率提升 10 倍（小时级&rarr;分钟级）</td></tr>
+      <tr><td><strong>全链路压测+ 平台</strong></td><td>Locust + Boomer + TKE 弹性伸缩</td><td>单核 2 万 QPS；自动调用拓扑生成+瓶颈定位；压测流量染色+影子库表隔离</td></tr>
+    </tbody>
+  </table>
+
+  <h4>事中：可观测性平台</h4>
+  <p>基于 <strong>OpenTelemetry</strong> 标准构建，OneSDK 统一上报 Trace/Metric/Log。支持 Golang/Python/C++/PHP/Rust/JS 多语言，单集群支撑<strong>300 万 QPS</strong> 上报。通过 Kafka/Pulsar 解耦上下游，支持动态采样、数据聚合控制和熔断降级。集成 AIOps 异常检测能力，结合混沌实验标注异常特征训练模型。联动混沌平台实现<strong>强弱依赖自动分析</strong>。</p>
+
+  <h4>事后：SLO 跟踪 + 复盘</h4>
+  <p>采用 Google VALET 法选择 SLI（Volume/Availability/Latency/Error/Ticket），通过 SLO Tracker 对接故障报单平台，持续跟踪错误预算消耗。故障复盘遵循无责文化，Action Items 闭环追踪。</p>
+
+  <div class="info-box blue">
+    <strong>特色亮点：</strong>"三件套"深度联动 &mdash; 可观测性提供链路拓扑 &rarr; 混沌实验注入故障 &rarr; 可观测性检测强弱依赖 &rarr; 全链路压测验证容量。三者协同形成闭环，而非独立运作。
+  </div>
+
+  <!-- 3.2 阿里 -->
+  <h3 id="s3.2"><span class="company-badge badge-al">阿里巴巴</span> 全栈高可用 AHAS</h3>
+
+  <div class="card">
+    <h4>体系概览</h4>
+    <p>阿里依托<strong>双十一</strong>这一极限场景，沉淀了业界最成熟的大规模高可用体系。<strong>AHAS</strong>（Application High Availability Service）覆盖<strong>架构感知 &rarr; 流量防护 &rarr; 故障演练 &rarr; 多活容灾</strong>全链路，核心开源项目<strong>ChaosBlade</strong>和<strong>Sentinel</strong>已成为行业标准。</p>
+  </div>
+
+  <table>
+    <thead><tr><th style="width:14%">阶段</th><th>工具/平台</th><th>核心功能</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>事前</strong></td>
+        <td>AHAS 架构探测、ChaosBlade、全链路压测</td>
+        <td>自动发现微服务调用拓扑；混沌工程注入故障；<strong>生产环境全链路压测首创者</strong>，影子库表隔离，精确容量评估</td>
+      </tr>
+      <tr>
+        <td><strong>事中</strong></td>
+        <td>Sentinel、Sunfire、EagleEye</td>
+        <td>限流/熔断/降级/系统自适应保护；Sunfire 统一监控告警；EagleEye 分布式链路追踪</td>
+      </tr>
+      <tr>
+        <td><strong>事后</strong></td>
+        <td>MSHA、单元化架构</td>
+        <td>同城双活+异地多活；<strong>单元化架构</strong>（按用户分片，故障爆炸半径可控）；流量/应用/数据全链路自动切换</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card orange">
+    <h4>单元化多活架构</h4>
+    <p>阿里电商系统的核心架构 &mdash; 以用户维度分片，每个单元独立闭环（流量&rarr;应用&rarr;数据）。同城双活（RPO=0），异地多活。单元内故障不影响其他单元，爆炸半径严格可控。MSHA 产品化后支持从流量入口到应用层到数据层的全链路故障自动切换。</p>
+  </div>
+
+  <div class="info-box warn">
+    <strong>特色亮点：</strong>双十一极限场景倒逼体系成熟。全链路压测方法论成为行业标准（腾讯、美团、字节等广泛借鉴）。ChaosBlade 是国内混沌工程领域最具影响力的开源项目之一。
+  </div>
+
+  <!-- 3.3 小红书 -->
+  <h3 id="s3.3"><span class="company-badge badge-xs">小红书</span> 跨云多活 + 智能可观测</h3>
+
+  <div class="card">
+    <h4>体系概览</h4>
+    <p>小红书从 2015 年单云单区起步，历经单云多区双活（2021 年），到 2022 年实现<strong>跨云多活架构</strong>。用户规模从千万增长至亿级，全年可用率达<strong>99.99%</strong>，云原生容器化率达 80% 以上，并联合开发了<strong>Karmada</strong>多云编排开源项目。</p>
+  </div>
+
+  <h4>事前：多云架构 + 故障演练</h4>
+  <table>
+    <thead><tr><th style="width:20%">能力域</th><th>技术方案</th><th>关键特性</th></tr></thead>
+    <tbody>
+      <tr><td><strong>跨云多活架构</strong></td><td>Karmada 多云编排 + Redcast 数据同步</td><td>服务分为 Global/Region/Zone 三级；Karmada 统一多云资源调度；Redcast 自适应多机房网络数据分发</td></tr>
+      <tr><td><strong>故障演练</strong></td><td>单机房故障容灾演练常态化</td><td>持续不断进行单机房容灾演练，发现问题并解决，方法沉淀为预案</td></tr>
+      <tr><td><strong>微服务治理</strong></td><td>自研 Kite RPC + Nacos + SkyWalking</td><td>流量治理（金丝雀发布、区域优先路由、动态权重调整）；全链路追踪（端到端延迟 P99&lt;800ms）</td></tr>
+    </tbody>
+  </table>
+
+  <h4>事中：可观测性体系</h4>
+  <p>小红书可观测性平台在<strong>AI 时代</strong>持续演进，已构建覆盖以下维度的全栈可观测能力：</p>
+  <ul>
+    <li><strong>AI Infra 观测：</strong>GPU 基础设施保障、训练 Hang 发现与定位、训练效果观测</li>
+    <li><strong>AI 应用观测：</strong>AI 应用全链路监控（端到端），兼容异构推理框架</li>
+    <li><strong>可观测 AI Agent：</strong>融合传统 AIOps 与大模型能力，围绕稳定性工程进行 AI+ 建设</li>
+  </ul>
+
+  <h4>事后：智能运维 + AIOps</h4>
+  <div class="card purple">
+    <h4>AIOps 平台</h4>
+    <ul>
+      <li><strong>异常检测：</strong>基于 Prophet 算法预测服务指标，提前 15 分钟预警</li>
+      <li><strong>根因分析：</strong>通过图神经网络定位故障传播路径，准确率 &gt; 90%</li>
+      <li><strong>自愈系统：</strong>自动执行熔断、限流、重启等操作，恢复时间 &lt; 2 分钟</li>
+      <li><strong>鸿蒙故障诊断：</strong>共建并开源鸿蒙应用稳定性故障 AI 诊断能力</li>
+    </ul>
+  </div>
+
+  <div class="info-box success">
+    <strong>特色亮点：</strong>跨云多活架构（不依赖单一云厂商）+ AI 时代可观测性（从传统三层演进到 AI Infra + AI 应用 + AI Agent 三位一体）+ 99.99% 全年可用性。小红书证明了中型规模公司也能通过架构演进和智能运维达到四个九的可用性水平。
+  </div>
+
+  <!-- 3.4 抖音 -->
+  <h3 id="s3.4"><span class="company-badge badge-dy">抖音（字节跳动）</span> 混沌工程 + Rhino 全链路压测 + 容灾多活</h3>
+
+  <div class="card">
+    <h4>体系概览</h4>
+    <p>字节跳动的 SRE 体系以<strong>混沌工程</strong>为事前验证核心、<strong>Rhino 全链路压测平台</strong>为容量保障核心、<strong>同城多机房 + 异地多活</strong>为容灾底座。混沌工程经历三代演进，红蓝对抗与强弱依赖自动化梳理已覆盖抖音与火山核心场景。Roino 压测平台支撑过春晚红包等超大流量活动（单次 3kw+ QPS，4000+ 实例）。</p>
+  </div>
+
+  <h4>事前：混沌工程（三代演进）</h4>
+  <table>
+    <thead><tr><th style="width:12%">代际</th><th>核心建设</th><th>关键能力</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>第一代</strong></td>
+        <td>容灾演练平台</td>
+        <td>网络故障注入为主，基于阈值的简单指标分析与自动停止</td>
+      </tr>
+      <tr>
+        <td><strong>第二代</strong></td>
+        <td>故障中心重构</td>
+        <td>声明式故障模型（Target&rarr;Scope Filter&rarr;Dependency&rarr;Action）；可扩展架构；借鉴 K8s 设计理念（API Server/Scheduler/Controller + etcd）</td>
+      </tr>
+      <tr>
+        <td><strong>第三代</strong></td>
+        <td>自动化指标分析 + 红蓝对抗</td>
+        <td>ML 无阈值异常检测；红蓝对抗流程标准化；强弱依赖全自动化梳理</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card orange">
+    <h4>实验原则与流程</h4>
+    <p><strong>四阶段递进原则：</strong>从线下到生产 &rarr; 从小到大（可控流量&rarr;单机&rarr;单集群&rarr;单机房&rarr;全链路）&rarr; 从面向过去到面向未来（重现历史事故&rarr;全链路随机故障）&rarr; 从工作日到休息日。</p>
+    <p><strong>红蓝对抗：</strong>红军（防守方）评估防守目标，蓝军（攻击方）主导执行。对抗后复盘汇总问题，保留完整现场数据。已多次帮助推荐中台全面摸底，发现从监控告警到兜底降级熔断策略的诸多问题。</p>
+    <p><strong>强弱依赖自动化：</strong>通过 ML 无阈值异常检测，强弱依赖梳理已基本实现全自动化，覆盖抖音与火山核心场景。</p>
+  </div>
+
+  <h4>事中：Rhino 全链路压测平台</h4>
+  <table>
+    <thead><tr><th style="width:16%">能力模块</th><th>技术方案</th><th>关键指标</th></tr></thead>
+    <tbody>
+      <tr><td><strong>数据构造</strong></td><td>CSV/自增/随机/常量 + 压测专属账号服务</td><td>支持 HTTP/RPC/Go Plugin 多协议</td></tr>
+      <tr><td><strong>压测隔离</strong></td><td>压测标记（Stress_Tag KV 透传）+ 影子表/Redis 前缀/MQ 丢弃 + 压测开关</td><td>MySQL/MongoDB 影子表、Redis Key 前缀、MQ 默认丢弃</td></tr>
+      <tr><td><strong>链路治理</strong></td><td>调用链自动梳理 + 一键拉群周知 + 压测开关管理 + Service Mesh 染色 Mock</td><td>实时梳理，多链路合并，对业务透明 Mock</td></tr>
+      <tr><td><strong>发压引擎</strong></td><td>容器化 Agent（独占）+ Gatling/自研引擎 + Go Plugin 动态加载</td><td>动态扩容至 4000+ 实例，支撑 3kw+ QPS</td></tr>
+      <tr><td><strong>压测熔断</strong></td><td>基于告警监控熔断 + 基于 Metric 熔断（CPU/Memory/错误率等）</td><td>实时监听告警；自定义指标阈值自动停止</td></tr>
+      <tr><td><strong>压测监控</strong></td><td>客户端 1s 粒度监控（T-Digest PCT99）+ 服务端全链路大盘 + 火焰图 Profile</td><td>客户端 1s 粒度；自动高亮风险节点</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card green">
+    <h4>Rhino 高级模式</h4>
+    <ul>
+      <li><strong>线上流量调度：</strong>逐步调大单实例权重，测试极限性能，500+ 微服务接入</li>
+      <li><strong>常态化压测：</strong>周期定时自动执行，无人值守，自动开启压测开关/发起流量/熔断/推送报告</li>
+      <li><strong>DevOps 流水线压测：</strong>压测注册为 CI/CD 原子服务，上线前自动性能验证，拦截性能劣化</li>
+      <li><strong>边缘计算压测：</strong>在 CDN 边缘节点部署 Agent，模拟全国不同地域/运营商流量</li>
+    </ul>
+  </div>
+
+  <h4>事后：容灾多活架构</h4>
+  <table>
+    <thead><tr><th style="width:15%">演进阶段</th><th>架构形态</th><th>核心特征</th></tr></thead>
+    <tbody>
+      <tr><td><strong>早期</strong></td><td>单机房</td><td>华北单机房部署，业务从无到有</td></tr>
+      <tr><td><strong>2018 年</strong></td><td>同城双机房</td><td>主从模式，读请求双机房分担；2019 年光缆被切断事故暴露控制面未独立部署问题</td></tr>
+      <tr><td><strong>当前</strong></td><td>同城多机房 + 异地多活</td><td>IDC 全互联；控制面独立部署；20 分钟完成区域间流量切换，30 分钟完成存储层切换</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-box warn">
+    <strong>容灾三大关键词：</strong>资源（容量评估是前提）、流量（切流策略与比例）、数据（恢复与修复）。<br>
+    <strong>国内模式：</strong>内容类业务（写入少/读取多）基于读取场景异地多活；电商类业务采用传统单元化；海外按国家维度单元化部署。<br>
+    <strong>演练演进：</strong>全员现场 &rarr; 部分在线 &rarr; 全面在线 &rarr; 红蓝对抗 + 突袭演练。
+  </div>
+
+  <div class="info-box blue">
+    <strong>特色亮点：</strong>故障中心借鉴 K8s 声明式设计，是混沌工程架构设计的优秀范式。Rhino 全链路压测平台的 Go Plugin 动态加载机制和常态化压测模式代表了全链路压测的前沿方向。容器灾从"保底手段"升级为"常态化建设"，演练成本持续降低。
+  </div>
+
+  <!-- 3.5 快手 -->
+  <h3 id="s3.5"><span class="company-badge badge-ks">快手</span> 低成本常态化稳定性</h3>
+
+  <div class="card">
+    <h4>体系概览</h4>
+    <p>快手的稳定性保障体系以<strong>"低成本常态化"</strong>为核心理念，通过工具平台化降低门槛、压测手段立体化覆盖全场景、<strong>流水线性能准出卡点</strong>实现压测左移。经历了春晚等极限流量场景的验证，形成了从日常到极端场景的完整稳定性保障能力。</p>
+  </div>
+
+  <h4>事前：立体化压测体系</h4>
+  <table>
+    <thead><tr><th style="width:18%">压测模式</th><th>适用场景</th><th>核心特点</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>全链路/核心链路压测</strong></td>
+        <td>大促活动、春晚等极端流量场景</td>
+        <td>真实用户行为模拟，端到端验证</td>
+      </tr>
+      <tr>
+        <td><strong>离线流量回放压测</strong></td>
+        <td>线上摘除实例后的性能验证</td>
+        <td>利用线上真实流量回放，贴近生产环境</td>
+      </tr>
+      <tr>
+        <td><strong>实时流量回放压测</strong></td>
+        <td>实时流量复制验证</td>
+        <td>实时复制线上流量进行压测</td>
+      </tr>
+      <tr>
+        <td><strong>哨兵压测</strong></td>
+        <td>持续性能监控与劣化检测</td>
+        <td>长期运行，持续监控性能变化趋势</td>
+      </tr>
+      <tr>
+        <td><strong>流水线压测（左移）</strong></td>
+        <td>CI/CD 流水线中的性能卡点</td>
+        <td>上线前自动压测，性能不达标则阻断发布</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card orange">
+    <h4>平台化关键能力</h4>
+    <ul>
+      <li><strong>配置化免代码：</strong>多链路配置化用例编写，降低压测门槛</li>
+      <li><strong>发压引擎稳定性：</strong>支撑春节活动主链路 &amp; 活动链路超高并发</li>
+      <li><strong>智能熔断：</strong>压测作业自动检测异常并熔断，确保线上安全</li>
+      <li><strong>压测隔离：</strong>完善的压测流量与数据隔离技术方案</li>
+    </ul>
+  </div>
+
+  <h4>事中：稳定性保障组织 + 交付流程</h4>
+  <p>快手建立了稳定性保障的<strong>组织建设</strong>与<strong>交付流程稳定性保障</strong>机制。线上稳定性保障覆盖监控告警、应急响应、变更管控等多维度。在春晚等超大流量场景下，依托 Flink 实时计算进行全系统过载保护、压力测试和资源调度。</p>
+
+  <h4>事后：研发效能提升 + 团队建设</h4>
+  <p>通过稳定性保障实践倒逼研发效能提升，推动团队建设。终态目标是<strong>低成本例行化压测</strong> &mdash; 将稳定性验证融入日常，而非大促前的突击行为。</p>
+
+  <div class="info-box success">
+    <strong>特色亮点：</strong>快手稳定性保障的核心理念是"低成本"和"常态化" &mdash; 通过配置化免代码降低使用门槛，通过流水线压测将稳定性验证左移到开发阶段，通过多种压测模式覆盖全场景。哨兵压测模式（长期运行持续监控性能变化）是差异化的创新实践。
+  </div>
+
+  <!-- 3.6 AWS -->
+  <h3 id="s3.6"><span class="company-badge badge-aws">AWS</span> 韧性生命周期框架</h3>
+
+  <div class="card">
+    <h4>体系概览</h4>
+    <p>AWS 的 SRE 方法论围绕<strong>韧性生命周期框架</strong>（Resilience Lifecycle Framework）展开，将可靠性分为五个阶段管理。其核心哲学是<strong>"将可靠性内建到平台层"</strong>，用户通过组合 AWS 托管服务即可获得高可用能力，大幅降低自建 SRE 体系的复杂度。</p>
+  </div>
+
+  <table>
+    <thead><tr><th style="width:13%">生命周期阶段</th><th>核心活动</th><th>关键服务</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1. 设定目标</strong></td><td>定义可用性 SLA/SLO，识别关键业务指标</td><td>Resilience Hub、CloudWatch</td></tr>
+      <tr><td><strong>2. 设计与实现</strong></td><td>多 AZ/Multi-Region 架构，自动扩缩，松耦合</td><td>Auto Scaling、Route53、ELB、SQS</td></tr>
+      <tr><td><strong>3. 评估与测试</strong></td><td>混沌工程、GameDay、持续韧性验证</td><td>FIS（Fault Injection Simulator）</td></tr>
+      <tr><td><strong>4. 运营</strong></td><td>可观测、告警、事件管理、变更管理</td><td>CloudWatch、X-Ray、DevOps Guru</td></tr>
+      <tr><td><strong>5. 响应与学习</strong></td><td>事件响应、Postmortem（COE）、持续改进</td><td>Incident Manager、Systems Manager</td></tr>
+    </tbody>
+  </table>
+
+  <h4>核心工具链</h4>
+  <div class="card">
+    <h4>AWS FIS &mdash; 全托管混沌工程</h4>
+    <p>支持 EC2/ECS/EKS/RDS 等全托管故障注入，内置安全护栏和自动回滚机制。提供<strong>五种混沌实验模式</strong>：Ad Hoc（临时）、GameDay（结构化）、混沌流水线（CI/CD 旁路独立运行）、金丝雀部署（小流量验证）、定时实验（周期性自动执行）。混沌流水线不与 CI/CD 耦合，避免拖慢交付速度。</p>
+  </div>
+
+  <div class="card orange">
+    <h4>可观测性三件套</h4>
+    <ul>
+      <li><strong>CloudWatch：</strong>统一指标/日志/告警平台，1 秒粒度，15 个月数据保留</li>
+      <li><strong>X-Ray：</strong>端到端服务地图，全链路追踪，与 Synthetics/RUM 集成</li>
+      <li><strong>DevOps Guru：</strong>ML 异常检测与根因分析，自动关联多数据源</li>
+    </ul>
+  </div>
+
+  <div class="card green">
+    <h4>Resilience Hub &mdash; 持续韧性评估</h4>
+    <p>自动分析架构是否符合 Well-Architected 可靠性最佳实践，生成韧性评分和改进建议。与 FIS 联动可执行验证实验。</p>
+  </div>
+
+  <div class="info-box blue">
+    <strong>特色亮点：</strong>AWS 将可靠性方法论<strong>产品化</strong>，用户无需自建工具链即可获得完整 SRE 能力。5 种混沌实验模式中的<strong>混沌流水线解耦 CI/CD</strong>理念先进 &mdash; 100 个并行部署 × 10 个实验 × 15 分钟 = 不可接受。独立流水线是规模化混沌工程的必然路径。
+  </div>
+</section>
+
+<!-- ====== 横向对比 ====== -->
+<section>
+  <h3>六家企业关键能力对比</h3>
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr><th style="width:10%">维度</th><th style="width:14%">腾讯</th><th style="width:14%">阿里</th><th style="width:14%">小红书</th><th style="width:14%">抖音</th><th style="width:14%">快手</th><th style="width:14%">AWS</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>方法论</strong></td>
+        <td>玄图 SRE<br>8 大准则</td>
+        <td>AHAS 全栈<br>单元化架构</td>
+        <td>跨云多活<br>智能可观测</td>
+        <td>混沌+容灾<br>声明式故障模型</td>
+        <td>低成本<br>常态化</td>
+        <td>韧性生命周期<br>Well-Architected</td>
+      </tr>
+      <tr>
+        <td><strong>混沌工程</strong></td>
+        <td>27 种故障原子<br>红蓝对抗常态化</td>
+        <td>ChaosBlade(开源)<br>可信云最高认证</td>
+        <td>容灾演练常态化<br>AI 诊断</td>
+        <td>三代演进<br>强弱依赖全自动</td>
+        <td>立体化压测<br>哨兵压测模式</td>
+        <td>FIS 全托管<br>5 种实验模式</td>
+      </tr>
+      <tr>
+        <td><strong>可观测性</strong></td>
+        <td>OpenTelemetry<br>OneSDK 300万QPS</td>
+        <td>Sunfire+EagleEye<br>统一监控+追踪</td>
+        <td>AI 三位一体可观测<br>Prophet+AIOps</td>
+        <td>MTTR 分解监控<br>1s 粒度客户端</td>
+        <td>监控告警体系<br>变更管控</td>
+        <td>CloudWatch+X-Ray<br>DevOps Guru(ML)</td>
+      </tr>
+      <tr>
+        <td><strong>全链路压测</strong></td>
+        <td>压测+ 平台<br>自动拓扑+瓶颈定位</td>
+        <td>生产压测首创<br>影子库表隔离</td>
+        <td>Nacos 动态配置<br>SkyWalking 追踪</td>
+        <td>Rhino 3kw+QPS<br>GoPlugin 动态加载</td>
+        <td>5 种压测模式<br>流水线性能卡点</td>
+        <td>Distributed Load Testing<br>第三方集成</td>
+      </tr>
+      <tr>
+        <td><strong>容灾架构</strong></td>
+        <td>蓝鲸多级编排<br>接入+应用层</td>
+        <td>单元化多活<br>MSHA 全链路切换</td>
+        <td>跨云多活<br>Karmada+Redcast</td>
+        <td>同城多机房<br>异地多活 20min</td>
+        <td>同城+异地<br>春晚级流量</td>
+        <td>Multi-AZ+Region<br>Auto Scaling 自愈</td>
+      </tr>
+      <tr>
+        <td><strong>核心差异化</strong></td>
+        <td>"三件套"联动</td>
+        <td>双十一倒逼<br>ChaosBlade 开源</td>
+        <td>跨云不锁定<br>AI 可观测 Agent</td>
+        <td>声明式故障中心<br>常态化压测</td>
+        <td>低成本门槛<br>压测左移卡点</td>
+        <td>方法论产品化<br>混沌流水线解耦</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ====== CHAPTER 4: 参考资料 ====== -->
+<section>
+  <h2 id="s4"><span class="num">四</span> 参考资料</h2>
+  <ol class="ref-list">
+    <li>腾讯. <em>云原生背景运维转型之 SRE 实践</em>. CSDN, 2022. <a href="https://blog.csdn.net/Tencent_TEG/article/details/122504910">链接</a></li>
+    <li>刘天斯. <em>堪称范本！腾讯运维转型之 SRE 体系建设</em>. 搜狐, 2022. <a href="https://www.sohu.com/a/517249363_411876">链接</a></li>
+    <li>腾讯. <em>一夜颠覆 60% 旧体系，腾讯的 SRE 运维转型实践</em>. 知乎, 2022. <a href="https://zhuanlan.zhihu.com/p/558910632">链接</a></li>
+    <li>阿里巴巴. <em>应用高可用服务 AHAS</em>. <a href="https://www.aliyun.com/product/ahas">链接</a></li>
+    <li>阿里巴巴. <em>ChaosBlade 混沌工程开源项目</em>. <a href="https://chaosblade.io/docs/">链接</a></li>
+    <li>阿里巴巴. <em>阿里双11全链路压测端到端实施方案</em>. 阿里云开发者社区, 2019. <a href="https://developer.aliyun.com/article/721643">链接</a></li>
+    <li>阿里巴巴. <em>混沌工程：基于 ChaosBlade 的可持续故障演练实践</em>. 阿里云开发者社区, 2023. <a href="https://developer.aliyun.com/article/1202281">链接</a></li>
+    <li>王亚普. <em>重塑可观测边界：小红书在大模型时代的稳定性工程实践</em>. InfoQ QCon 上海, 2025. <a href="https://www.infoq.cn/article/o1SSDviSSgIkYE067gYf">链接</a></li>
+    <li>小红书. <em>小红书跨云多活架构的演进与实践</em>. 博客园, 2025. <a href="https://www.cnblogs.com/weifegn/p/18750953">链接</a></li>
+    <li>小红书. <em>小红书微服务框架及治理：云原生业务架构演进深度解析</em>. 百度开发者中心, 2025. <a href="https://developer.baidu.com/article/detail.html?id=4108421">链接</a></li>
+    <li>小红书. <em>长在云原生架构上的小红书</em>. 极客时间, 2022. <a href="https://time.geekbang.org/column/article/468594">链接</a></li>
+    <li>字节跳动技术团队. <em>字节跳动混沌工程实践总结</em>. 火山引擎开发者社区, 2026. <a href="https://developer.volcengine.com/articles/7599493949559930918">链接</a></li>
+    <li>字节跳动技术团队. <em>字节跳动全链路压测 (Rhino) 的实践</em>. InfoQ, 2020. <a href="https://www.infoq.cn/article/O9i6BfecBm3TI5htfM1r">链接</a></li>
+    <li>百玥. <em>字节跳动容灾实践：同城容灾+异地多活是最好的模式吗？</em>. InfoQ QCon 北京, 2024. <a href="https://www.infoq.cn/article/r6NV8uZ6M79rAAuVXVrg">链接</a></li>
+    <li>田欧. <em>快手全链路压测实践</em>. 在线工具. <a href="https://tool.lu/deck/Fu/detail">链接</a></li>
+    <li>快手. <em>首次揭秘！春晚活动下快手实时链路保障实践</em>. 51CTO, 2021. <a href="https://blog.51cto.com/u_15332900/4828545">链接</a></li>
+    <li>AWS. <em>Increasing Resilience Using Chaos Engineering on AWS</em>. AWS Prescriptive Guidance, 2026. <a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/chaos-engineering-on-aws/">链接</a></li>
+    <li>AWS. <em>Reliability Pillar - AWS Well-Architected Framework</em>. 2024. <a href="https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/">链接</a></li>
+    <li>AWS. <em>AWS Fault Injection Simulator (FIS)</em>. <a href="https://aws.amazon.com/fis/">链接</a></li>
+    <li>SRE 精英联盟. <em>SRE 实践白皮书 v1.0.7</em>. 2026. <a href="https://www.sre-elite.com/notice/wp-v-1.0.7/">链接</a></li>
+  </ol>
+</section>
+
+<footer>
+  <p>SRE 稳定性保障体系 &mdash; 理论框架与业界实践 v2.0 &nbsp;|&nbsp; 技术报告 &nbsp;|&nbsp; 2026 年 7 月 &nbsp;|&nbsp; 6 家企业 &middot; 20 篇参考文献</p>
+</footer>
+
+</div>
+
+</body>
+</html>

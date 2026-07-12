@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frostmourne 霜之哀伤 — 技术报告</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --primary-light: #dbeafe;
+            --accent: #0ea5e9;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --purple: #8b5cf6;
+            --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 25px rgba(0,0,0,0.08), 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            font-size: 15px;
+        }
+
+        /* 顶部封面 */
+        .hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0c4a6e 100%);
+            color: white;
+            padding: 70px 20px 60px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: "";
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle at 30% 50%, rgba(37,99,235,0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 50%, rgba(14,165,233,0.15) 0%, transparent 50%);
+        }
+        .hero-content { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; }
+        .hero h1 { font-size: 42px; font-weight: 800; letter-spacing: -1px; margin-bottom: 12px; }
+        .hero .subtitle { font-size: 18px; opacity: 0.85; margin-bottom: 30px; }
+        .hero .badges { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .hero .badge {
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            backdrop-filter: blur(4px);
+        }
+        .hero .meta { margin-top: 24px; font-size: 13px; opacity: 0.7; }
+
+        /* 容器 */
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+        /* 目录 */
+        .toc {
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 28px 32px;
+            margin: -40px auto 30px;
+            max-width: 1100px;
+            position: relative;
+            z-index: 2;
+        }
+        .toc h3 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-light); margin-bottom: 16px; }
+        .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+        .toc a {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 14px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .toc a:hover { background: var(--primary-light); }
+        .toc a .num { color: var(--text-light); margin-right: 6px; font-weight: 600; }
+
+        /* 章节 */
+        section {
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 36px 40px;
+            margin-bottom: 28px;
+        }
+        section h2 {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 6px;
+            padding-bottom: 14px;
+            border-bottom: 3px solid var(--primary-light);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        section h2 .icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center; justify-content: center;
+            color: white; font-size: 18px; font-weight: 700;
+        }
+        section h3 { font-size: 19px; font-weight: 600; margin: 26px 0 12px; color: var(--primary-dark); }
+        section h4 { font-size: 16px; font-weight: 600; margin: 20px 0 10px; }
+        section p { margin-bottom: 12px; }
+        section ul, section ol { margin: 10px 0 14px 22px; }
+        section li { margin-bottom: 6px; }
+
+        /* 表格 */
+        .table-wrap { overflow-x: auto; margin: 16px 0; border-radius: 8px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { background: #f1f5f9; font-weight: 600; text-align: left; padding: 12px 16px; color: var(--text); border-bottom: 2px solid var(--border); }
+        td { padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f8fafc; }
+        td code, p code { background: var(--primary-light); color: var(--primary-dark); padding: 2px 7px; border-radius: 4px; font-family: "Fira Code", "Consolas", monospace; font-size: 13px; }
+
+        /* 代码块 */
+        pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 18px 22px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 14px 0;
+            font-family: "Fira Code", "Consolas", "Courier New", monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        pre .com { color: #94a3b8; }
+        pre .kw { color: #93c5fd; }
+        pre .str { color: #86efac; }
+
+        /* 卡片网格 */
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 18px 0; }
+        .card {
+            background: linear-gradient(135deg, #f8fafc, #ffffff);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+        .card .card-title { font-weight: 700; font-size: 16px; margin-bottom: 8px; color: var(--primary-dark); display: flex; align-items: center; gap: 8px; }
+        .card .card-title .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .card .card-desc { font-size: 13px; color: var(--text-light); line-height: 1.6; }
+
+        /* 标签 */
+        .tag { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 2px; }
+        .tag-blue { background: #dbeafe; color: #1e40af; }
+        .tag-green { background: #d1fae5; color: #065f46; }
+        .tag-orange { background: #fef3c7; color: #92400e; }
+        .tag-purple { background: #ede9fe; color: #5b21b6; }
+        .tag-red { background: #fee2e2; color: #991b1b; }
+        .tag-gray { background: #e2e8f0; color: #334155; }
+
+        /* 流程图 */
+        .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; margin: 24px 0; justify-content: center; }
+        .flow-step {
+            flex: 1; min-width: 130px;
+            background: var(--card);
+            border: 2px solid var(--primary-light);
+            border-radius: 10px;
+            padding: 16px 12px;
+            text-align: center;
+            position: relative;
+        }
+        .flow-step .step-icon { font-size: 26px; margin-bottom: 8px; }
+        .flow-step .step-title { font-weight: 700; font-size: 14px; color: var(--primary-dark); margin-bottom: 4px; }
+        .flow-step .step-desc { font-size: 11px; color: var(--text-light); }
+        .flow-arrow { display: flex; align-items: center; justify-content: center; padding: 0 4px; color: var(--primary); font-size: 22px; font-weight: bold; }
+
+        /* 高亮信息框 */
+        .callout {
+            border-left: 4px solid var(--primary);
+            background: var(--primary-light);
+            padding: 14px 18px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+        }
+        .callout.warning { border-color: var(--warning); background: #fef3c7; }
+        .callout.danger { border-color: var(--danger); background: #fee2e2; }
+        .callout.success { border-color: var(--success); background: #d1fae5; }
+        .callout strong { display: block; margin-bottom: 4px; }
+
+        /* 架构图 */
+        .arch-diagram {
+            background: linear-gradient(135deg, #f8fafc, #e0f2fe);
+            border: 2px solid var(--primary-light);
+            border-radius: 12px;
+            padding: 28px;
+            margin: 18px 0;
+            text-align: center;
+        }
+        .arch-layer { margin: 8px 0; }
+        .arch-layer-label { font-size: 12px; color: var(--text-light); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+        .arch-boxes { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+        .arch-box { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; box-shadow: var(--shadow); }
+        .arch-box.primary { background: var(--primary); color: white; border-color: var(--primary); }
+        .arch-box.accent { background: var(--accent); color: white; border-color: var(--accent); }
+        .arch-box.purple { background: var(--purple); color: white; border-color: var(--purple); }
+        .arch-arrow-down { color: var(--text-light); font-size: 18px; margin: 4px 0; }
+
+        /* 统计数字 */
+        .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; margin: 20px 0; }
+        .stat-item { text-align: center; background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; border-radius: 10px; padding: 20px 10px; }
+        .stat-num { font-size: 32px; font-weight: 800; }
+        .stat-label { font-size: 13px; opacity: 0.9; margin-top: 4px; }
+
+        /* 时间轴 */
+        .timeline { position: relative; padding-left: 28px; margin: 18px 0; }
+        .timeline::before {
+            content: ""; position: absolute; left: 8px; top: 4px; bottom: 4px;
+            width: 3px; background: linear-gradient(to bottom, var(--primary), var(--accent), var(--purple));
+            border-radius: 2px;
+        }
+        .tl-item { position: relative; margin-bottom: 16px; padding: 14px 18px; background: linear-gradient(135deg, #f8fafc, #ffffff); border: 1px solid var(--border); border-radius: 8px; transition: box-shadow 0.2s; }
+        .tl-item:hover { box-shadow: var(--shadow-lg); }
+        .tl-item::before {
+            content: ""; position: absolute; left: -24px; top: 20px;
+            width: 13px; height: 13px; border-radius: 50%;
+            background: var(--primary); border: 3px solid white; box-shadow: 0 0 0 2px var(--primary);
+        }
+        .tl-item.tl-highlight::before { background: var(--danger); box-shadow: 0 0 0 2px var(--danger); }
+        .tl-item.tl-highlight { border-left: 4px solid var(--danger); }
+        .tl-date { font-size: 13px; font-weight: 700; color: var(--primary-dark); margin-bottom: 4px; font-family: "Fira Code", "Consolas", monospace; }
+        .tl-content { font-size: 14px; line-height: 1.6; }
+        .tl-content strong { color: var(--text); }
+
+        /* 页脚 */
+        footer { text-align: center; padding: 40px 20px; color: var(--text-light); font-size: 13px; }
+
+        @media (max-width: 768px) {
+            section { padding: 24px 20px; }
+            .hero h1 { font-size: 30px; }
+            .toc-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ==================== 封面 ==================== -->
+<div class="hero">
+    <div class="hero-content">
+        <h1>Frostmourne 霜之哀伤</h1>
+        <p class="subtitle">汽车之家开源通用数据监控系统 · 技术分析报告</p>
+        <div class="badges">
+            <span class="badge">Java 8 / Spring Boot 2.3</span>
+            <span class="badge">Vue + Element UI</span>
+            <span class="badge">11 种数据源</span>
+            <span class="badge">7 种报警方式</span>
+            <span class="badge">v1.0-RELEASE</span>
+        </div>
+        <p class="meta">报告生成时间：2026-07-12 · 基于 master 分支源码分析</p>
+    </div>
+</div>
+
+<!-- ==================== 目录 ==================== -->
+<div class="container">
+    <div class="toc">
+        <h3>目录</h3>
+        <div class="toc-grid">
+            <a href="#sec1"><span class="num">01</span>项目概述</a>
+            <a href="#sec2"><span class="num">02</span>技术栈总览</a>
+            <a href="#sec3"><span class="num">03</span>系统架构</a>
+            <a href="#sec4"><span class="num">04</span>Maven 模块结构</a>
+            <a href="#sec5"><span class="num">05</span>核心执行链路</a>
+            <a href="#sec6"><span class="num">06</span>调度子系统</a>
+            <a href="#sec7"><span class="num">07</span>数据源与指标抽象</a>
+            <a href="#sec8"><span class="num">08</span>规则判定引擎</a>
+            <a href="#sec9"><span class="num">09</span>报警与消息发送</a>
+            <a href="#sec10"><span class="num">10</span>数据库模型</a>
+            <a href="#sec11"><span class="num">11</span>前端架构</a>
+            <a href="#sec12"><span class="num">12</span>部署方式</a>
+            <a href="#sec13"><span class="num">13</span>安全分析</a>
+            <a href="#sec14"><span class="num">14</span>项目统计</a>
+            <a href="#sec15"><span class="num">15</span>接入指南</a>
+            <a href="#sec16"><span class="num">16</span>项目简史</a>
+            <a href="#sec17"><span class="num">17</span>总结与展望</a>
+        </div>
+    </div>
+
+    <!-- ==================== 1. 项目概述 ==================== -->
+    <section id="sec1">
+        <h2><span class="icon">1</span>项目概述</h2>
+        <p><strong>Frostmourne（霜之哀伤）</strong>是汽车之家经销商技术部监控系统的开源版本，定位为<strong>通用数据监控报警平台</strong>。其核心理念是：<em>"只需写一条数据查询，即可完成监控配置"</em>。</p>
+
+        <h3>解决什么问题</h3>
+        <p>团队建立 ELK 日志体系、Prometheus 指标体系后，往往缺乏配套的监控报警方案。初期使用 ElastAlert 存在管理成本高、稳定性不足等问题，Frostmourne 正是为了填补这一空白而诞生——用更易用、更稳定的方式做数据监控。</p>
+
+        <h3>核心能力一览</h3>
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-title"><span class="dot" style="background:var(--primary)"></span>数据源丰富</div>
+                <div class="card-desc">支持 Elasticsearch、Prometheus、SkyWalking、InfluxDB、MySQL、ClickHouse、SqlServer、IoTDB、HTTP、PING、Telnet 共 11 种数据源类型</div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="dot" style="background:var(--success)"></span>灵活报警</div>
+                <div class="card-desc">钉钉、企业微信、飞书、OneMessage 机器人、邮件、短信、HTTP POST 共 7 种消息发送方式</div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="dot" style="background:var(--warning)"></span>智能抑制</div>
+                <div class="card-desc">报警静默、报警升级、恢复通知、消息允许发送时段控制，防止消息轰炸</div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="dot" style="background:var(--purple)"></span>模板引擎</div>
+                <div class="card-desc">Freemarker 模板定制报警内容，支持变量占位符；消息格式支持 Text 与 Markdown</div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="dot" style="background:var(--danger)"></span>分布式调度</div>
+                <div class="card-desc">内置类 xxl-job 思想的调度引擎，每个监控独立调度互不影响，支持快慢线程池</div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="dot" style="background:var(--accent)"></span>权限隔离</div>
+                <div class="card-desc">部门-团队-用户三级组织模型，数据隔离，各团队互不影响；支持 LDAP 认证</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== 2. 技术栈 ==================== -->
+    <section id="sec2">
+        <h2><span class="icon">2</span>技术栈总览</h2>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th style="width:120px">分层</th><th>技术选型</th><th>说明</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>后端框架</strong></td>
+                        <td>Spring Boot 2.3.1.RELEASE</td>
+                        <td>核心应用框架，JDK 8+（兼容 8/11/13）</td>
+                    </tr>
+                    <tr>
+                        <td><strong>ORM</strong></td>
+                        <td>MyBatis 2.1.1 + mybatis-dynamic-sql</td>
+                        <td>90% 查询用动态 SQL（代码即 SQL），复杂场景用 XML SQL，两者互补</td>
+                    </tr>
+                    <tr>
+                        <td><strong>连接池</strong></td>
+                        <td>Druid 1.1.22</td>
+                        <td>数据库连接池，支持密码加密</td>
+                    </tr>
+                    <tr>
+                        <td><strong>调度引擎</strong></td>
+                        <td>自研（借鉴 xxl-job 思想）</td>
+                        <td>基于 MySQL 行锁 + 时间环（Time Ring）的分布式调度</td>
+                    </tr>
+                    <tr>
+                        <td><strong>模板引擎</strong></td>
+                        <td>Freemarker</td>
+                        <td>报警消息内容渲染，支持变量占位符</td>
+                    </tr>
+                    <tr>
+                        <td><strong>表达式引擎</strong></td>
+                        <td>Nashorn (JavaScript Engine)</td>
+                        <td>执行用户自定义 JS 表达式判断是否触发报警</td>
+                    </tr>
+                    <tr>
+                        <td><strong>鉴权</strong></td>
+                        <td>jjwt + LDAP</td>
+                        <td>JWT Token 认证，支持 LDAP 对接企业账号体系</td>
+                    </tr>
+                    <tr>
+                        <td><strong>ES 客户端</strong></td>
+                        <td>ES REST High Level Client 6.6.2 + ES Java 8.1.3</td>
+                        <td>同时兼容 ES 6.x 和 ES 8.x</td>
+                    </tr>
+                    <tr>
+                        <td><strong>日志</strong></td>
+                        <td>Log4j2 2.17.1</td>
+                        <td>替代默认 Logback，修复 log4j 漏洞</td>
+                    </tr>
+                    <tr>
+                        <td><strong>前端框架</strong></td>
+                        <td>Vue 2 + vue-element-admin</td>
+                        <td>基于 vue-admin-template 模板</td>
+                    </tr>
+                    <tr>
+                        <td><strong>UI 组件</strong></td>
+                        <td>Element UI</td>
+                        <td>企业级中后台 UI 组件库</td>
+                    </tr>
+                    <tr>
+                        <td><strong>前端工具</strong></td>
+                        <td>Yarn 1.22 / Node 16.14</td>
+                        <td>包管理与构建</td>
+                    </tr>
+                    <tr>
+                        <td><strong>存储</strong></td>
+                        <td>MySQL 5.7.8+ (utf8mb4)</td>
+                        <td>所有元数据存储，各数据源本身存储业务数据</td>
+                    </tr>
+                    <tr>
+                        <td><strong>其他依赖</strong></td>
+                        <td>Guava 31.1 / Jackson 2.13.4 / Joda-Time</td>
+                        <td>通用工具库</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ==================== 3. 系统架构 ==================== -->
+    <section id="sec3">
+        <h2><span class="icon">3</span>系统架构</h2>
+        <p>系统采用<strong>前后端分离 + 单体服务</strong>架构，前端构建产物打包进后端资源目录，最终部署为单个 Spring Boot 应用。</p>
+
+        <div class="arch-diagram">
+            <div class="arch-layer">
+                <div class="arch-layer-label">前端层 (frostmourne-vue)</div>
+                <div class="arch-boxes">
+                    <div class="arch-box primary">监控管理</div>
+                    <div class="arch-box primary">数据查询</div>
+                    <div class="arch-box primary">执行日志</div>
+                    <div class="arch-box primary">报警模板</div>
+                    <div class="arch-box primary">用户/团队</div>
+                </div>
+            </div>
+            <div class="arch-arrow-down">↓ HTTP / REST API ↓</div>
+            <div class="arch-layer">
+                <div class="arch-layer-label">后端控制层 (Controller × 19)</div>
+                <div class="arch-boxes">
+                    <div class="arch-box accent">AlarmController</div>
+                    <div class="arch-box accent">DataQueryController</div>
+                    <div class="arch-box accent">LogController</div>
+                    <div class="arch-box accent">UserController</div>
+                </div>
+            </div>
+            <div class="arch-arrow-down">↓</div>
+            <div class="arch-layer">
+                <div class="arch-layer-label">核心服务层 (Service Core)</div>
+                <div class="arch-boxes">
+                    <div class="arch-box purple">调度引擎 Schedule</div>
+                    <div class="arch-box purple">指标采集 Metric</div>
+                    <div class="arch-box purple">规则判定 Rule</div>
+                    <div class="arch-box purple">报警处理 Alert</div>
+                    <div class="arch-box purple">消息发送 Message</div>
+                </div>
+            </div>
+            <div class="arch-arrow-down">↓</div>
+            <div class="arch-layer">
+                <div class="arch-layer-label">数据访问层 (DAO × 156)</div>
+                <div class="arch-boxes">
+                    <div class="arch-box">MyBatis Dynamic SQL</div>
+                    <div class="arch-box">XML SQL Mapper</div>
+                </div>
+            </div>
+            <div class="arch-arrow-down">↓</div>
+            <div class="arch-layer">
+                <div class="arch-layer-label">外部数据源</div>
+                <div class="arch-boxes">
+                    <div class="arch-box">Elasticsearch</div>
+                    <div class="arch-box">Prometheus</div>
+                    <div class="arch-box">MySQL</div>
+                    <div class="arch-box">ClickHouse</div>
+                    <div class="arch-box">SkyWalking</div>
+                    <div class="arch-box">InfluxDB</div>
+                    <div class="arch-box">IoTDB</div>
+                    <div class="arch-box">SqlServer</div>
+                    <div class="arch-box">HTTP</div>
+                    <div class="arch-box">PING/Telnet</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== 4. 模块结构 ==================== -->
+    <section id="sec4">
+        <h2><span class="icon">4</span>Maven 模块结构</h2>
+        <p>项目采用 Maven 多模块结构，父 POM <code>com.autohome:frostmourne:1.0-RELEASE</code> 管理三个子模块：</p>
+
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-title"><span class="dot" style="background:var(--success)"></span>frostmourne-common</div>
+                <div class="card-desc">
+                    公共工具与基础模型模块。<br>
+                    包含：condition（条件构造）、contract（数据契约）、exception（异常体系）、jackson（序列化）、log4j2（日志）、mybatis（ORM 工具）、time（时间工具）、EmailHelper。<br>
+                    <strong>25 个 Java 文件</strong>，是三个模块中最薄的。
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="dot" style="background:var(--primary)"></span>frostmourne-monitor</div>
+                <div class="card-desc">
+                    监控主体服务，<strong>所有核心逻辑所在</strong>。<br>
+                    包含 config / controller / dao / model / schedule / service / tool / transform 八大子包。<br>
+                    <strong>385 个 Java 文件</strong>，是系统心脏。
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="dot" style="background:var(--warning)"></span>frostmourne-vue</div>
+                <div class="card-desc">
+                    前端项目，基于 vue-element-admin 模板。<br>
+                    构建时将资源打包到 monitor 的 <code>resources/dist</code> 目录，随后端一起部署。<br>
+                    <strong>40 个 Vue 文件 + 69 个 JS 文件</strong>。
+                </div>
+            </div>
+        </div>
+
+        <h3>frostmourne-monitor 包结构详解</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>包</th><th>文件数</th><th>职责</th></tr></thead>
+                <tbody>
+                    <tr><td><code>config</code></td><td>12</td><td>Spring 配置类：数据源、Feign、Freemarker、调度配置、全局异常处理、Web 拦截器</td></tr>
+                    <tr><td><code>controller</code></td><td>19</td><td>REST 接口层，对应前端所有功能菜单</td></tr>
+                    <tr><td><code>dao</code></td><td>156</td><td>MyBatis 数据访问层，含 domain 实体、repository 仓储、mapper 接口</td></tr>
+                    <tr><td><code>model</code></td><td>50</td><td>数据模型：contract（前后端契约）、enums（16 个枚举）、message（消息体）</td></tr>
+                    <tr><td><code>schedule</code></td><td>6</td><td>调度引擎核心：Cron 表达式、调度助手、触发助手、远程触发服务</td></tr>
+                    <tr><td><code>service</code></td><td>110</td><td>业务服务层（见下方详细分解）</td></tr>
+                    <tr><td><code>tool</code></td><td>11</td><td>工具类：表达式解析、IP 工具、MD5 等</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>service 子包分解</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>子包</th><th>文件数</th><th>职责</th></tr></thead>
+                <tbody>
+                    <tr><td><code>service/core</code></td><td>79</td><td><strong>核心引擎</strong>：alert（报警判定）、execute（执行器）、metric（指标采集，32 文件）、query（数据查询，18 文件）、rule（规则判定，9 文件）、template（模板渲染）</td></tr>
+                    <tr><td><code>service/account</code></td><td>12</td><td>账号、团队、部门、权限管理</td></tr>
+                    <tr><td><code>service/message</code></td><td>11</td><td>消息发送：10 种 Sender（钉钉/企微/飞书/邮件/短信/HTTP/OneMessage）+ 消息链</td></tr>
+                    <tr><td><code>service/admin</code></td><td>—</td><td>管理服务：数据源、数据名、监控 CRUD</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ==================== 5. 核心执行链路 ==================== -->
+    <section id="sec5">
+        <h2><span class="icon">5</span>核心执行链路</h2>
+        <p>这是整个系统最重要的业务流程，理解这条链路就理解了 Frostmourne 的核心设计：</p>
+
+        <div class="flow">
+            <div class="flow-step">
+                <div class="step-icon">⏰</div>
+                <div class="step-title">调度触发</div>
+                <div class="step-desc">Cron 定时<br>扫描 alarm 表</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="step-icon">📥</div>
+                <div class="step-title">拉取指标</div>
+                <div class="step-desc">IMetric.pullMetric()<br>查询数据源</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="step-icon">📋</div>
+                <div class="step-title">规则判定</div>
+                <div class="step-desc">IRule.verify()<br>数值/表达式/百分比</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="step-icon">🔔</div>
+                <div class="step-title">报警判定</div>
+                <div class="step-desc">静默检查<br>连续次数/恢复</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="step-icon">📝</div>
+                <div class="step-title">模板渲染</div>
+                <div class="step-desc">Freemarker<br>填充变量</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="step-icon">📤</div>
+                <div class="step-title">消息发送</div>
+                <div class="step-desc">Sender Chain<br>钉钉/企微/邮件...</div>
+            </div>
+        </div>
+
+        <h3>入口：AlarmService.run()</h3>
+        <p>整个链路的编排者在 <code>AlarmService</code> 中，核心方法 <code>run(AlarmContract, boolean test)</code> 的执行逻辑：</p>
+        <pre><span class="com">// 1. 根据规则类型找到对应的 IRule 实现</span>
+IRule rule = ruleService.findRule(alarmContract.getRuleContract().getRuleType());
+
+<span class="com">// 2. 根据数据源类型 + 指标类型找到对应的 IMetric 实现</span>
+DataSourceType dataSourceType = ...;
+IMetric metric = metricService.findMetric(dataSourceType, metricContract.getMetricType());
+
+<span class="com">// 3. 组装执行器并执行（拉取指标 + 规则判定）</span>
+AlarmExecutor alarmExecutor = <span class="kw">new</span> AlarmExecutor(alarmContract, rule, metric);
+AlarmProcessLogger alarmProcessLogger = alarmExecutor.execute();
+
+<span class="com">// 4. 报警判定（连续次数、静默检查）</span>
+<span class="kw">boolean</span> isAlert = VerifyResult.TRUE.equals(alarmProcessLogger.getVerifyResult())
+                    && judgeAlert(alarmProcessLogger);
+
+<span class="com">// 5. 渲染报警消息（Freemarker 模板）</span>
+<span class="kw">if</span> (isAlert) {
+    String completeMessage = completeAlertMessage(alarmContract, alarmProcessLogger, rule);
+}
+
+<span class="com">// 6. 非测试模式：记录日志 + 触发报警发送</span>
+<span class="kw">if</span> (!test) {
+    updateAlarmLastExecuteInfo(...);
+    alertService.alert(alarmProcessLogger);  <span class="com">// 进入报警发送流程</span>
+}</pre>
+
+        <div class="callout">
+            <strong>设计亮点：策略模式贯穿全程</strong>
+            <code>IRule</code>（规则策略）、<code>IMetric</code>（指标策略）、<code>MessageSender</code>（发送策略）均以接口形式定义，通过 <code>*Service.findXxx()</code> 动态查找实现。新增数据源或报警方式只需新增实现类，符合开闭原则。
+        </div>
+    </section>
+
+    <!-- ==================== 6. 调度子系统 ==================== -->
+    <section id="sec6">
+        <h2><span class="icon">6</span>调度子系统</h2>
+        <p>调度引擎位于 <code>schedule</code> 包，借鉴 xxl-job 思想自研，是整个系统的"心脏"。核心由两个守护线程 + MySQL 行锁实现分布式调度。</p>
+
+        <h3>核心组件</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>组件</th><th>职责</th></tr></thead>
+                <tbody>
+                    <tr><td><code>JobScheduleHelper</code></td><td>调度核心：scheduleThread（预读线程）+ ringThread（时间环触发线程）</td></tr>
+                    <tr><td><code>JobTriggerHelper</code></td><td>触发核心：快慢双线程池（fastTriggerPool / slowTriggerPool），超时任务自动降级到慢池</td></tr>
+                    <tr><td><code>CronExpression</code></td><td>Cron 表达式解析，计算下次触发时间</td></tr>
+                    <tr><td><code>RemoteTriggerService</code></td><td>远程触发服务，实际调用 AlarmService 执行监控</td></tr>
+                    <tr><td><code>TaskComponent</code></td><td>任务组件，管理调度生命周期</td></tr>
+                    <tr><td><code>job_lock</code> 表</td><td>数据库锁表，<code>select ... for update</code> 实现分布式互斥</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>调度流程详解</h3>
+        <pre><span class="com">/** scheduleThread 主循环 **/</span>
+<span class="kw">while</span> (!scheduleThreadToStop) {
+    <span class="com">// 1. 获取数据库行锁（for update），保证分布式环境下只有一个实例调度</span>
+    conn.prepareStatement(<span class="str">"select * from job_lock where lock_name='schedule_lock' for update"</span>);
+
+    <span class="com">// 2. 预读未来 5 秒内待执行的监控任务（PRE_READ_MS = 5000）</span>
+    List&lt;Alarm&gt; scheduleList = alarmRepository.querySchedule(nowTime + 5000, 1000);
+
+    <span class="kw">for</span> (Alarm alarm : scheduleList) {
+        <span class="kw">if</span> (超期 &gt; 5s) {
+            <span class="com">// misfire：立即补偿触发一次 + 计算下次时间</span>
+            JobTriggerHelper.trigger(alarm.getId());
+            refreshNextValidTime(alarm, now);
+        } <span class="kw">else if</span> (已到期) {
+            <span class="com">// 立即触发 + 计算下次时间</span>
+            <span class="com">// 若下次触发仍在 5 秒内，放入时间环</span>
+            JobTriggerHelper.trigger(alarm.getId());
+            pushTimeRing(ringSecond, alarm.getId());
+        } <span class="kw">else</span> {
+            <span class="com">// 预读：放入时间环（按秒分桶）</span>
+            pushTimeRing(ringSecond, alarm.getId());
+        }
+    }
+
+    <span class="com">// 3. 更新 alarm 表的 trigger_last_time / trigger_next_time</span>
+    <span class="com">// 4. 提交事务，释放行锁</span>
+    <span class="com">// 5. 休眠对齐到下一秒</span>
+}
+
+<span class="com">/** ringThread 主循环：每秒扫描时间环 **/</span>
+<span class="kw">while</span> (!ringThreadToStop) {
+    <span class="com">// 取当前秒 + 上一秒的任务（避免处理耗时跨刻度漏触发）</span>
+    <span class="kw">for</span> (int i = 0; i &lt; 2; i++) {
+        List&lt;Long&gt; jobs = RING_DATA.remove((nowSecond + 60 - i) % 60);
+        <span class="kw">for</span> (Long jobId : jobs) {
+            JobTriggerHelper.trigger(jobId);  <span class="com">// 丢入线程池异步执行</span>
+        }
+    }
+}</pre>
+
+        <h3>快慢线程池机制</h3>
+        <div class="callout success">
+            <strong>智能降级设计</strong>
+            <code>JobTriggerHelper</code> 维护两个线程池：快池（fastTriggerPool）和慢池（slowTriggerPool）。若某个监控任务在 5 分钟内超时（&gt;5s）超过 15 次，自动降级到慢池执行，避免慢任务拖垮快任务调度。这是非常精妙的资源隔离设计。
+        </div>
+    </section>
+
+    <!-- ==================== 7. 数据源与指标抽象 ==================== -->
+    <section id="sec7">
+        <h2><span class="icon">7</span>数据源与指标抽象</h2>
+
+        <h3>数据源类型枚举（DataSourceType）</h3>
+        <p>系统支持 11 种数据源类型，定义在 <code>model/enums/DataSourceType.java</code>：</p>
+        <div>
+            <span class="tag tag-blue">elasticsearch</span>
+            <span class="tag tag-blue">prometheus</span>
+            <span class="tag tag-blue">skywalking</span>
+            <span class="tag tag-blue">influxdb</span>
+            <span class="tag tag-blue">mysql</span>
+            <span class="tag tag-blue">clickhouse</span>
+            <span class="tag tag-blue">sqlserver</span>
+            <span class="tag tag-blue">iotdb</span>
+            <span class="tag tag-orange">http</span>
+            <span class="tag tag-orange">ping</span>
+            <span class="tag tag-orange">telnet</span>
+        </div>
+
+        <h3>指标接口设计（IMetric）</h3>
+        <pre><span class="kw">public interface</span> IMetric {
+    <span class="com">// 从数据源拉取指标数据，返回键值对上下文</span>
+    Map&lt;String, Object&gt; pullMetric(MetricContract metricContract,
+                                     Map&lt;String, String&gt; ruleSettings) <span class="kw">throws</span> DataQueryException;
+
+    <span class="com">// 指标类型（numeric 数值 / ring_than 环比 / same_time 同比 / object 对象）</span>
+    MetricEnumType metricType();
+
+    <span class="com">// 匹配判断：用于 MetricService 动态查找</span>
+    <span class="kw">boolean</span> matchMetricType(String metricType);
+    <span class="kw">boolean</span> matchDataSourceType(String dataSourceType);
+}</pre>
+
+        <h3>指标实现体系（32 个文件）</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>抽象基类</th><th>职责</th><th>具体实现（按数据源）</th></tr></thead>
+                <tbody>
+                    <tr><td><code>AbstractBaseMetric</code></td><td>所有指标基类</td><td>—</td></tr>
+                    <tr><td><code>AbstractNumericMetric</code></td><td>数值类监控</td><td>ES、Prometheus、InfluxDB、MySQL、ClickHouse、SqlServer、IoTDB、SkyWalking</td></tr>
+                    <tr><td><code>AbstractRingMetric</code></td><td>环比监控</td><td>同上数据源</td></tr>
+                    <tr><td><code>AbstractSameTimeMetric</code></td><td>同比监控</td><td>同上数据源</td></tr>
+                    <tr><td><code>AbstractObjectMetric</code></td><td>对象类（HTTP 响应判断）</td><td>HTTP</td></tr>
+                    <tr><td><code>AbstractPingMetric</code></td><td>连通性监控</td><td>PING、Telnet</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>数据查询层（IQueryService）</h3>
+        <p>每种数据源有独立的查询接口，位于 <code>service/core/query</code>：</p>
+        <ul>
+            <li><code>IElasticsearchDataQuery</code> — ES 查询（同时支持 6.x 和 8.x 客户端）</li>
+            <li><code>IPrometheusDataQuery</code> — PromQL 查询（支持 <code>/api/v1/query</code> 和 <code>/api/v1/query_range</code>）</li>
+            <li><code>ISkywalkingDataQuery</code> — SkyWalking GraphQL 查询</li>
+            <li><code>IInfluxdbDataQuery</code> — InfluxQL 查询</li>
+            <li><code>IMysqlDataQuery</code> / <code>IClickhouseDataQuery</code> / <code>ISqlServerDataQuery</code> — JDBC 查询</li>
+            <li><code>IIotDbDataQuery</code> — IoTDB 时序数据库查询</li>
+        </ul>
+    </section>
+
+    <!-- ==================== 8. 规则判定引擎 ==================== -->
+    <section id="sec8">
+        <h2><span class="icon">8</span>规则判定引擎</h2>
+        <p>规则判定位于 <code>service/core/rule</code>，采用策略模式实现，共 9 个文件。</p>
+
+        <h3>规则接口（IRule）</h3>
+        <pre><span class="kw">public interface</span> IRule {
+    <span class="com">// 核心方法：拉取指标 + 判定是否触发报警</span>
+    <span class="kw">boolean</span> verify(AlarmProcessLogger logger, RuleContract ruleContract,
+                     MetricContract metricContract, IMetric metric);
+
+    <span class="com">// 使用 Freemarker 渲染报警消息</span>
+    String alertMessage(String alertTemplate, Map&lt;String, Object&gt; context);
+
+    <span class="com">// 检查指标运行状态（异常时抛出 RuntimeException）</span>
+    <span class="kw">default void</span> checkMetricRunState(Map&lt;String, Object&gt; context) { ... }
+}</pre>
+
+        <h3>规则实现体系</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>规则类</th><th>类型</th><th>判定逻辑</th></tr></thead>
+                <tbody>
+                    <tr><td><code>NumericRule</code></td><td><span class="tag tag-blue">numeric</span></td><td>数值比较：拉取指标值与阈值比较（&gt; / &gt;= / &lt; / &lt;= / ==），支持 count/min/max/avg/sum/unique count/percentiles/stddev</td></tr>
+                    <tr><td><code>BucketNumericRule</code></td><td><span class="tag tag-purple">bucket</span></td><td>分桶统计：ES 数据按字段值或时间分桶，每个桶独立判定阈值</td></tr>
+                    <tr><td><code>ExpressionRule</code></td><td><span class="tag tag-orange">expression</span></td><td>表达式判定：用 Nashorn 引擎执行 JavaScript 表达式，返回 boolean</td></tr>
+                    <tr><td><code>PercentageRule</code></td><td><span class="tag tag-green">percentage</span></td><td>百分比判定：结果占比例的阈值比较</td></tr>
+                    <tr><td><code>PingRule</code></td><td><span class="tag tag-gray">ping</span></td><td>连通性判定：PING / Telnet 是否连通</td></tr>
+                    <tr><td><code>AbstractRule</code></td><td>—</td><td>抽象基类，提供通用方法</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>执行器（AlarmExecutor）</h3>
+        <p><code>AlarmExecutor</code> 是单次监控执行的编排者，组合了 AlarmContract（配置）、IRule（规则）、IMetric（指标）三个策略：</p>
+        <pre><span class="kw">public</span> AlarmProcessLogger execute() {
+    alarmProcessLogger.trace(<span class="str">"execute start"</span>);
+    alarmProcessLogger.setStart(DateTime.now());
+
+    <span class="com">// 调用规则判定：内部会先 metric.pullMetric() 拉数据，再做阈值比较</span>
+    ExecuteStatus executeStatus = doRule();
+    alarmProcessLogger.setExecuteStatus(executeStatus);
+
+    alarmProcessLogger.trace(<span class="str">"execute end"</span>);
+    alarmProcessLogger.setEnd(DateTime.now());
+    <span class="kw">return</span> alarmProcessLogger;
+}
+
+<span class="kw">private</span> ExecuteStatus doRule() {
+    <span class="kw">try</span> {
+        <span class="kw">boolean</span> verifyResult = rule.verify(logger, ruleContract, metricContract, metric);
+        logger.setVerifyResult(verifyResult ? VerifyResult.TRUE : VerifyResult.FALSE);
+        <span class="kw">return</span> ExecuteStatus.SUCCESS;
+    } <span class="kw">catch</span> (Exception ex) {
+        logger.trace(<span class="str">"error: "</span> + ex.getMessage());
+        <span class="kw">return</span> ExecuteStatus.ERROR;
+    }
+}</pre>
+    </section>
+
+    <!-- ==================== 9. 报警与消息发送 ==================== -->
+    <section id="sec9">
+        <h2><span class="icon">9</span>报警与消息发送</h2>
+
+        <h3>报警处理（AlertService）</h3>
+        <p><code>AlertService</code> 负责报警的完整生命周期管理，核心逻辑包括：</p>
+        <ul>
+            <li><strong>报警判定</strong>：连续报警次数达阈值（ALERT_CONDITION）才真正报警</li>
+            <li><strong>静默检查</strong>：基于 <code>alert_event</code> 表和静默表达式，判断是否处于静默期</li>
+            <li><strong>恢复通知</strong>：上次报警、本次未报警时，发送 RECOVER 恢复消息</li>
+            <li><strong>报警升级</strong>：连续报警 N 次后升级通知（<code>alert_upgrade</code> 配置）</li>
+            <li><strong>日志记录</strong>：写入 <code>alert_log</code> 表，记录发送状态（SUCCESS/FAIL/FORBID）</li>
+        </ul>
+
+        <h3>消息发送链（MessageSenderChain）</h3>
+        <p>采用责任链模式，10 种 Sender 各自处理对应的消息方式：</p>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Sender</th><th>方式</th><th>说明</th></tr></thead>
+                <tbody>
+                    <tr><td><code>DingRobotSender</code></td><td><span class="tag tag-blue">钉钉机器人</span></td><td>通过 Webhook 发送，支持 Text/Markdown</td></tr>
+                    <tr><td><code>DingDingSender</code></td><td><span class="tag tag-blue">钉钉企业</span></td><td>企业钉钉 API（需要企业配置）</td></tr>
+                    <tr><td><code>WechatRobotSender</code></td><td><span class="tag tag-green">企微机器人</span></td><td>企业微信群机器人 Webhook</td></tr>
+                    <tr><td><code>WechatSender</code></td><td><span class="tag tag-green">企业微信</span></td><td>企业微信应用消息</td></tr>
+                    <tr><td><code>FeishuRobotSender</code></td><td><span class="tag tag-purple">飞书机器人</span></td><td>飞书群机器人 Webhook</td></tr>
+                    <tr><td><code>OneMessageRobotSender</code></td><td><span class="tag tag-purple">OneMessage</span></td><td>OneMessage 平台机器人</td></tr>
+                    <tr><td><code>EmailSender</code></td><td><span class="tag tag-orange">邮件</span></td><td>SMTP 发送，支持 HTML 内容</td></tr>
+                    <tr><td><code>SmsSender</code></td><td><span class="tag tag-orange">短信</span></td><td>阿里云短信（可扩展）</td></tr>
+                    <tr><td><code>HttpPostSender</code></td><td><span class="tag tag-red">HTTP POST</span></td><td>回调自定义接口</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>消息模板</h3>
+        <p>报警内容使用 <strong>Freemarker</strong> 模板渲染，支持变量占位符。模板存储在 <code>rule.alert_template</code> 字段或 <code>alert_template</code> 表中，支持 Text 和 Markdown 两种格式。模板可引用的上下文变量包括：</p>
+        <ul>
+            <li><code>${THRESHOLD}</code> — 阈值</li>
+            <li><code>${VERIFIED_BUCKETS}</code> — 触发阈值的分桶列表</li>
+            <li><code>${ALARM_NAME}</code> / <code>${ALARM_DESCRIPTION}</code> — 监控名称/描述</li>
+            <li><code>${QUERY_STRING}</code> — 查询语句</li>
+            <li>各数据源返回的指标值（如 <code>${RESULT}</code>、<code>${BUCKETS}</code> 等）</li>
+        </ul>
+    </section>
+
+    <!-- ==================== 10. 数据库模型 ==================== -->
+    <section id="sec10">
+        <h2><span class="icon">10</span>数据库模型</h2>
+        <p>所有元数据存储在 MySQL，建库脚本为 <code>doc/mysql-schema/frostmourne.sql</code>，共 <strong>16 张表</strong>，字符集 utf8mb4。</p>
+
+        <h3>核心业务表</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>表名</th><th>用途</th><th>关键字段</th></tr></thead>
+                <tbody>
+                    <tr><td><code>alarm</code></td><td>监控配置主表</td><td>alarm_name, alarm_type, cron, status(OPEN/CLOSE), team_name, risk_level, trigger_next_time</td></tr>
+                    <tr><td><code>metric</code></td><td>监控指标配置</td><td>aggregation_type(count/sum/avg...), metric_type(numeric/ring_than/same_time/object), query_string, bucket_type</td></tr>
+                    <tr><td><code>rule</code></td><td>报警规则</td><td>rule_type(numeric/percentage/expression), alert_template(Freemarker模板), alert_template_type(TEXT/MARKDOWN)</td></tr>
+                    <tr><td><code>rule_property</code></td><td>规则属性 KV</td><td>prop_key, prop_value（如 THRESHOLD、ALERT_CONDITION）</td></tr>
+                    <tr><td><code>alert</code></td><td>报警配置</td><td>ways(多种方式逗号分隔), silence(静默分钟数), silence_expression, ding_robot_hook, wechat_robot_hook...</td></tr>
+                    <tr><td><code>alert_upgrade</code></td><td>报警升级配置</td><td>times_to_upgrade, status, ways</td></tr>
+                    <tr><td><code>recipient</code></td><td>报警接收人</td><td>account, type(ALERT/ALERT_UPGRADE)</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>执行日志表</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>表名</th><th>用途</th><th>关键字段</th></tr></thead>
+                <tbody>
+                    <tr><td><code>alarm_log</code></td><td>监控执行日志</td><td>alarm_id, exe_start, exe_end, cost(毫秒), execute_result(SUCCESS/ERROR), alert(是否报警), verify_result(TRUE/FALSE)</td></tr>
+                    <tr><td><code>alert_log</code></td><td>报警发送日志</td><td>way, recipient, content, in_silence(YES/NO), send_status(SUCCESS/FAIL/FORBID), alert_type(PROBLEM/RECOVER)</td></tr>
+                    <tr><td><code>alert_event</code></td><td>报警事件（静默判断依据）</td><td>alarm_id, alert_type, in_silence, event_md5, upgrade</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>数据源与数据名管理</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>表名</th><th>用途</th></tr></thead>
+                <tbody>
+                    <tr><td><code>data_source</code></td><td>数据源配置（如 ES 集群地址、MySQL 连接信息）</td></tr>
+                    <tr><td><code>data_name</code></td><td>数据名（如某个 ES 索引、某张 MySQL 表），关联 data_source</td></tr>
+                    <tr><td><code>data_mapping</code></td><td>数据名字段说明（字段名/类型/描述）</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>组织与权限</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>表名</th><th>用途</th></tr></thead>
+                <tbody>
+                    <tr><td><code>department_info</code></td><td>部门信息（三级组织：部门→团队→用户）</td></tr>
+                    <tr><td><code>team_info</code></td><td>团队信息，关联 department_id</td></tr>
+                    <tr><td><code>user_info</code></td><td>用户信息（account/full_name/mobile/email/wxid/password）</td></tr>
+                    <tr><td><code>user_role</code></td><td>用户角色关系</td></tr>
+                    <tr><td><code>service_info</code></td><td>服务信息（监控可关联服务，用于报警升级时查找负责人）</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>其他</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>表名</th><th>用途</th></tr></thead>
+                <tbody>
+                    <tr><td><code>alert_template</code></td><td>报警模板管理（可复用的 Freemarker 模板）</td></tr>
+                    <tr><td><code>short_link</code></td><td>短链接表（报警消息中附带日志查询短链接）</td></tr>
+                    <tr><td><code>config_map</code></td><td>内部配置 KV 表</td></tr>
+                    <tr><td><code>job_lock</code></td><td>调度锁表（分布式调度互斥）</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ==================== 11. 前端架构 ==================== -->
+    <section id="sec11">
+        <h2><span class="icon">11</span>前端架构</h2>
+        <p>前端位于 <code>frostmourne-vue</code>，基于 <strong>vue-element-admin</strong> 模板，使用 Vue 2 + Element UI。</p>
+
+        <h3>目录结构</h3>
+        <pre>src/
+├── api/              <span class="com"># 后端接口封装（13 个 JS 文件）</span>
+│   ├── alarm.js      <span class="com"># 监控管理接口</span>
+│   ├── data-query.js <span class="com"># 数据查询接口</span>
+│   ├── log.js        <span class="com"># 日志接口</span>
+│   ├── user.js       <span class="com"># 用户接口</span>
+│   ├── admin.js / data.js / alert-template.js / ...
+│   └── account/
+├── views/            <span class="com"># 页面（21 个 Vue 文件）</span>
+│   ├── alarm/        <span class="com"># 监控管理（列表/编辑/测试）</span>
+│   ├── dashboard/    <span class="com"># 仪表盘</span>
+│   ├── data/         <span class="com"># 数据源/数据名管理</span>
+│   ├── query/        <span class="com"># ES 数据查询</span>
+│   ├── account/      <span class="com"># 账号/团队/部门管理</span>
+│   ├── form/         <span class="com"># 表单组件</span>
+│   ├── login/        <span class="com"># 登录页</span>
+│   └── 404.vue
+├── components/       <span class="com"># 公共组件</span>
+├── layout/          <span class="com"># 布局（侧边栏/导航栏/标签栏）</span>
+├── router/          <span class="com"># 路由配置</span>
+├── store/           <span class="com"># Vuex 状态管理</span>
+├── utils/           <span class="com"># 工具函数（10 个 JS，含 request 封装）</span>
+├── icons/           <span class="com"># SVG 图标（54 个）</span>
+├── lang/            <span class="com"># 国际化</span>
+├── styles/          <span class="com"># 全局样式</span>
+├── permission.js    <span class="com"># 路由权限守卫</span>
+└── main.js          <span class="com"># 应用入口</span></pre>
+
+        <h3>核心页面功能</h3>
+        <div class="card-grid">
+            <div class="card">
+                <div class="card-title">监控管理</div>
+                <div class="card-desc">监控列表、新增/编辑/另存/删除、开关控制、测试执行、查看调度时间</div>
+            </div>
+            <div class="card">
+                <div class="card-title">数据查询</div>
+                <div class="card-desc">Elasticsearch 数据查询、分享（短链接）、下载 CSV</div>
+            </div>
+            <div class="card">
+                <div class="card-title">执行日志</div>
+                <div class="card-desc">监控执行历史、执行耗时、报警状态、日志详情</div>
+            </div>
+            <div class="card">
+                <div class="card-title">报警历史</div>
+                <div class="card-desc">历史消息列表、发送状态、静默状态</div>
+            </div>
+            <div class="card">
+                <div class="card-title">模板管理</div>
+                <div class="card-desc">报警模板 CRUD、模板复用</div>
+            </div>
+            <div class="card">
+                <div class="card-title">组织管理</div>
+                <div class="card-desc">部门/团队/用户/角色 CRUD</div>
+            </div>
+        </div>
+
+        <h3>构建与部署</h3>
+        <p>前端构建时，Maven 会自动执行 <code>yarn build</code>，将产物输出到 <code>frostmourne-monitor/src/main/resources/dist</code>，最终随 Spring Boot 一起打包部署。</p>
+    </section>
+
+    <!-- ==================== 12. 部署方式 ==================== -->
+    <section id="sec12">
+        <h2><span class="icon">12</span>部署方式</h2>
+
+        <h3>方式一：Docker Compose（快速体验）</h3>
+        <p>最简单的部署方式，适合快速理解项目：</p>
+        <pre><span class="com"># doc/docker/docker-compose.yml</span>
+<span class="kw">services</span>:
+  frostmourne-monitor:
+    image: registry.cn-hangzhou.aliyuncs.com/kechangqing/frostmourne:1.0
+    environment:
+      datasource_frostmourne_url: jdbc:mysql://host.docker.internal:3306/frostmourne...
+      datasource_frostmourne_username: root
+      datasource_frostmourne_password: example
+      ldap_enabled: <span class="str">'false'</span>
+      email.smtp-host: smtp.qq.com
+      <span class="com"># ... 其他配置</span>
+    ports: [<span class="str">'10054:10054'</span>]</pre>
+
+        <h3>方式二：K8s 部署</h3>
+        <p>提供三个 K8s 配置文件：</p>
+        <ul>
+            <li><code>frostmourne-monitor-namespace.yaml</code> — 命名空间</li>
+            <li><code>frostmourne-monitor-deployment.yaml</code> — Deployment（环境变量配置在此）</li>
+            <li><code>frostmourne-monitor-service.yaml</code> — Service（默认 nodePort=30054）</li>
+        </ul>
+
+        <h3>方式三：ZIP 包部署</h3>
+        <p>下载 Release ZIP 包，修改 <code>application.properties</code> 和 <code>env</code> 配置文件后执行：</p>
+        <pre>./scripts/startup.sh   <span class="com"># 启动</span>
+./scripts/shutdown.sh  <span class="com"># 停止</span></pre>
+
+        <h3>方式四：自构建部署</h3>
+        <pre><span class="com"># 在项目根目录执行 Maven 构建（前端会自动构建）</span>
+mvn -U clean package -DskipTests=<span class="kw">true</span>
+
+<span class="com"># frostmourne-monitor/target 下生成 zip 包，解压后修改配置启动</span>
+./scripts/startup.sh</pre>
+
+        <h3>开发调试</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>环境</th><th>要求</th></tr></thead>
+                <tbody>
+                    <tr><td>JDK</td><td>8 ~ 14</td></tr>
+                    <tr><td>Node</td><td>16.14.2（推荐）</td></tr>
+                    <tr><td>Yarn</td><td>1.22.10（推荐）或 Npm 8.7.0</td></tr>
+                    <tr><td>MySQL</td><td>5.7.8+</td></tr>
+                    <tr><td>Elasticsearch</td><td>6.3.2+</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <pre><span class="com"># 后端启动参数（profile=local，端口 10054）</span>
+-Dmysql.host=localhost -Dmysql.user=root -Dmysql.password=example -Dlog.console.level=INFO
+
+<span class="com"># 前端开发</span>
+cd frostmourne-vue
+yarn install --registry=https://registry.npm.taobao.org
+yarn dev  <span class="com"># 自动打开 http://localhost:9528</span></pre>
+    </section>
+
+    <!-- ==================== 13. 安全分析 ==================== -->
+    <section id="sec13">
+        <h2><span class="icon">13</span>安全分析</h2>
+
+        <div class="callout danger">
+            <strong>SSRF 风险（需重点关注）</strong>
+            HTTP 数据源监控功能允许用户自定义 HTTP 请求地址，系统在服务端主动发起请求获取响应。这设计上具有 SSRF（服务端请求伪造）的潜在风险。系统定位为<strong>内网运维工具</strong>，强烈建议仅部署于企业内网，切勿对公网暴露。
+        </div>
+
+        <h3>安全建议</h3>
+        <ol>
+            <li><strong>内网部署是基础</strong>：即使内网部署，HTTP 监控仍可能被用于探测内网其他服务。云服务器部署需防止访问云平台元数据服务。</li>
+            <li><strong>最小权限原则</strong>：监控地址应精确固定，避免使用可由用户随意构造的动态 URL。</li>
+            <li><strong>网络层控制</strong>：通过防火墙规则、代理网关或主机网络访问控制，约束服务出站请求范围。</li>
+        </ol>
+
+        <h3>已有的安全措施</h3>
+        <ul>
+            <li>JWT Token 鉴权（jjwt），接口需携带有效 Token</li>
+            <li>支持 LDAP 对接企业账号体系</li>
+            <li>数据隔离：部门-团队-用户三级权限，各团队数据互不可见</li>
+            <li>数据库密码支持 Druid 加密（需自行配置）</li>
+            <li>敏感信息加密处理（0.9 版本引入）</li>
+            <li>Log4j2 已升级至 2.17.1，修复 Log4Shell 漏洞</li>
+        </ul>
+    </section>
+
+    <!-- ==================== 14. 项目统计 ==================== -->
+    <section id="sec14">
+        <h2><span class="icon">14</span>项目统计</h2>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-num">3</div>
+                <div class="stat-label">Maven 模块</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">410+</div>
+                <div class="stat-label">Java 文件</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">19</div>
+                <div class="stat-label">Controller</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">110</div>
+                <div class="stat-label">Service 类</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">11</div>
+                <div class="stat-label">数据源类型</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">10</div>
+                <div class="stat-label">消息发送器</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">16</div>
+                <div class="stat-label">数据库表</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">5</div>
+                <div class="stat-label">规则类型</div>
+            </div>
+        </div>
+
+        <h3>代码规模统计</h3>
+        <p>项目总共 <strong>627</strong> 个源文件，约 <strong>4.37 万行</strong>代码。Java 是绝对主力（57.8%），前端（Vue + JS）合计约 1.27 万行（29.0%），是一个典型的 <strong>Java Spring Boot + Vue 前后端分离</strong>监控平台项目，后端代码量约为前端的 2 倍。</p>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-num">627</div>
+                <div class="stat-label">源文件总数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">43,746</div>
+                <div class="stat-label">代码总行数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">57.8%</div>
+                <div class="stat-label">Java 占比</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">29.0%</div>
+                <div class="stat-label">前端占比</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">2:1</div>
+                <div class="stat-label">前后端代码比</div>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>文件类型</th><th style="width:120px">文件数</th><th style="width:140px">代码行数</th><th>占比</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>.java</code></td>
+                        <td>410</td>
+                        <td>25,256</td>
+                        <td><span class="tag tag-blue">57.8%</span> 后端主力，集中在 frostmourne-monitor</td>
+                    </tr>
+                    <tr>
+                        <td><code>.vue</code></td>
+                        <td>40</td>
+                        <td>7,025</td>
+                        <td><span class="tag tag-green">16.1%</span> 前端页面</td>
+                    </tr>
+                    <tr>
+                        <td><code>.js</code></td>
+                        <td>69</td>
+                        <td>5,680</td>
+                        <td><span class="tag tag-green">13.0%</span> 前端逻辑/API 封装</td>
+                    </tr>
+                    <tr>
+                        <td><code>.md</code></td>
+                        <td>41</td>
+                        <td>2,656</td>
+                        <td><span class="tag tag-gray">6.1%</span> 文档</td>
+                    </tr>
+                    <tr>
+                        <td><code>.xml</code></td>
+                        <td>14</td>
+                        <td>1,638</td>
+                        <td><span class="tag tag-orange">3.7%</span> MyBatis 映射 / POM</td>
+                    </tr>
+                    <tr>
+                        <td><code>.sql</code></td>
+                        <td>48</td>
+                        <td>1,315</td>
+                        <td><span class="tag tag-purple">3.0%</span> 数据库脚本（建库 + 版本变更）</td>
+                    </tr>
+                    <tr>
+                        <td><code>.properties</code></td>
+                        <td>5</td>
+                        <td>176</td>
+                        <td><span class="tag tag-gray">0.4%</span> 配置文件</td>
+                    </tr>
+                    <tr style="font-weight:700;background:#f1f5f9;">
+                        <td>合计</td>
+                        <td>627</td>
+                        <td>43,746</td>
+                        <td>100%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="callout">
+            <strong>代码构成分析</strong>
+            <ul style="margin:6px 0 0 18px;">
+                <li><strong>Java</strong>（25,256 行）占 57.8%，是绝对主力，集中在 <code>frostmourne-monitor</code> 模块</li>
+                <li><strong>前端</strong>（Vue + JS）合计约 12,705 行，占 29.0%，为 <code>frostmourne-vue</code> 模块</li>
+                <li><strong>文档</strong>（Markdown）约 2,656 行，文档覆盖较完善</li>
+                <li><strong>SQL 脚本</strong> 1,315 行（48 个文件，含建库脚本和各版本变更脚本，每文件规模较小）</li>
+                <li><strong>配置文件</strong>（XML + properties）约 1,814 行</li>
+            </ul>
+        </div>
+
+        <h3>版本历程</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>版本</th><th>关键特性</th></tr></thead>
+                <tbody>
+                    <tr><td><code>1.0-RELEASE</code></td><td>OneMessage 机器人、ES8 查询修复、监控转团队、LDAP 自动建用户、Prometheus query_range 支持</td></tr>
+                    <tr><td><code>0.9-RELEASE</code></td><td>Telnet 端口监控、SqlServer 监控、敏感信息加密、时区配置、Java11/13 支持</td></tr>
+                    <tr><td><code>0.8</code></td><td>IoTDB 监控、报警升级功能</td></tr>
+                    <tr><td><code>0.5~0.7</code></td><td>ClickHouse、Prometheus、SkyWalking、InfluxDB 数据源支持</td></tr>
+                    <tr><td><code>0.1~0.4</code></td><td>项目初创：ES 监控、HTTP/PING 监控、钉钉/企微/飞书/邮件报警</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ==================== 15. 接入指南 ==================== -->
+    <section id="sec15">
+        <h2><span class="icon">15</span>新接手者快速入门</h2>
+
+        <h3>推荐学习路径</h3>
+        <div class="flow">
+            <div class="flow-step">
+                <div class="step-icon">1️⃣</div>
+                <div class="step-title">跑通 Demo</div>
+                <div class="step-desc">Docker Compose<br>1-2 天</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="step-icon">2️⃣</div>
+                <div class="step-title">理解架构</div>
+                <div class="step-desc">读 technical.md<br>理解三大模块</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="step-icon">3️⃣</div>
+                <div class="step-title">读核心链路</div>
+                <div class="step-desc">schedule→metric<br>→rule→alert</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="step-icon">4️⃣</div>
+                <div class="step-title">熟悉数据模型</div>
+                <div class="step-desc">通读 frostmourne.sql<br>16 张表关系</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+                <div class="step-icon">5️⃣</div>
+                <div class="step-title">动手实践</div>
+                <div class="step-desc">建监控→触发<br>→收报警</div>
+            </div>
+        </div>
+
+        <h3>关键源码入口</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>入口</th><th>文件路径</th><th>作用</th></tr></thead>
+                <tbody>
+                    <tr><td>应用入口</td><td><code>FrostmourneMonitorApplication.java</code></td><td>Spring Boot 启动类</td></tr>
+                    <tr><td>调度核心</td><td><code>schedule/JobScheduleHelper.java</code></td><td>调度主循环 + 时间环</td></tr>
+                    <tr><td>触发核心</td><td><code>schedule/JobTriggerHelper.java</code></td><td>快慢线程池触发</td></tr>
+                    <tr><td>执行编排</td><td><code>service/core/execute/AlarmService.java</code></td><td>监控执行主流程</td></tr>
+                    <tr><td>执行器</td><td><code>service/core/execute/AlarmExecutor.java</code></td><td>单次执行（指标+规则）</td></tr>
+                    <tr><td>指标接口</td><td><code>service/core/metric/IMetric.java</code></td><td>指标采集策略</td></tr>
+                    <tr><td>规则接口</td><td><code>service/core/rule/IRule.java</code></td><td>规则判定策略</td></tr>
+                    <tr><td>报警处理</td><td><code>service/core/alert/AlertService.java</code></td><td>报警生命周期</td></tr>
+                    <tr><td>消息发送</td><td><code>service/message/MessageService.java</code></td><td>消息发送链入口</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>推荐优先阅读的文档</h3>
+        <ul>
+            <li><code>doc/wiki/technical.md</code> — 架构与 ORM 选型说明</li>
+            <li><code>doc/wiki/quick-start.md</code> — 快速启动指南</li>
+            <li><code>doc/wiki/es.md</code> — ES 数据监控（最常用的数据源）</li>
+            <li><code>doc/wiki/template.md</code> — 消息模板配置</li>
+            <li><code>doc/wiki/ways.md</code> — 报警发送方式</li>
+            <li><code>doc/wiki/supress.md</code> — 报警抑制机制</li>
+            <li><code>doc/wiki/auth.md</code> — 用户管理与登录认证</li>
+            <li><code>doc/mysql-schema/frostmourne.sql</code> — 数据库表结构（业务地图）</li>
+        </ul>
+    </section>
+
+    <!-- ==================== 16. 项目简史 ==================== -->
+    <section id="sec16">
+        <h2><span class="icon">16</span>项目简史</h2>
+        <p>基于 Git 提交历史梳理，项目从 <strong>2019 年 12 月</strong>初始化至 <strong>2026 年 4 月</strong>最新提交，共 <strong>363 次非 merge 提交</strong>，跨越 <strong>13 位贡献者</strong>。以下按版本阶段梳理发展脉络。</p>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-num">363</div>
+                <div class="stat-label">总提交数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">13</div>
+                <div class="stat-label">贡献者</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">6.5</div>
+                <div class="stat-label">年开发跨度</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num">8</div>
+                <div class="stat-label">正式版本</div>
+            </div>
+        </div>
+
+        <h3>时间轴：从诞生到 1.0-RELEASE</h3>
+
+        <h4>第一阶段：项目初创与核心功能（2019.12 — 2020.05）</h4>
+        <div class="timeline">
+            <div class="tl-item">
+                <div class="tl-date">2019-12-16</div>
+                <div class="tl-content">
+                    <strong>项目初始化</strong> — xiami 提交 Initial commit，kechangqing 提交 <code>init frostmourne</code>，项目正式诞生于汽车之家经销商技术部。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2019-12-22</div>
+                <div class="tl-content">
+                    <strong>ES 查询页面上线</strong> — 增加 Elasticsearch 数据查询页面，奠定"查询即监控"的产品形态。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2020-01-05</div>
+                <div class="tl-content">
+                    <strong>HTTP 数据监控</strong> — 首个非 ES 数据源接入，开启多数据源扩展之路。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2020-05-24</div>
+                <div class="tl-content">
+                    <strong>发布 0.1-RELEASE</strong> — 首个正式版本发布，含 ES 监控、钉钉/邮件报警、数据下载等基础能力。
+                </div>
+            </div>
+        </div>
+
+        <h4>第二阶段：多数据源与权限体系（2020.06 — 2020.09）</h4>
+        <div class="timeline">
+            <div class="tl-item">
+                <div class="tl-date">2020-06-08</div>
+                <div class="tl-content">
+                    <strong>报警方式扩展</strong> — 增加企业微信和 HTTP 请求报警方式，ES 客户端升级至 6.6.2。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2020-06-13</div>
+                <div class="tl-content">
+                    <strong>聚合类型丰富</strong> — 增加 avg、min、max、sum 聚合实现，数值监控能力补全。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2020-07-01 ~ 07-05</div>
+                <div class="tl-content">
+                    <strong>Docker 支持</strong> — Happy Li 贡献 Dockerfile 和 docker-compose，支持容器化部署；分阶段编译优化镜像。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2020-07-25</div>
+                <div class="tl-content">
+                    <strong>LDAP 认证</strong> — 实现 LDAP 登录认证，支持对接企业账号体系。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2020-08-01</div>
+                <div class="tl-content">
+                    <strong>权限控制与 DAO 重写</strong> — 数据库访问层重写，引入权限控制和数据隔离；角色设置、模板管理功能上线。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2020-09-19</div>
+                <div class="tl-content">
+                    <strong>发布 0.3-RELEASE</strong> — 同期增加 InfluxDB 数据监控，时序数据库首次接入。
+                </div>
+            </div>
+        </div>
+
+        <h4>第三阶段：数据源扩张与稳定性（2020.11 — 2021.05）</h4>
+        <div class="timeline">
+            <div class="tl-item">
+                <div class="tl-date">2020-11-17</div>
+                <div class="tl-content">
+                    <strong>MySQL 数据监控</strong> — JDBC 类数据源首次接入，为后续 ClickHouse、SqlServer 奠定基础。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2020-12-08</div>
+                <div class="tl-content">
+                    <strong>恢复通知开关</strong> — wxmclub 贡献恢复通知功能，报警恢复时可发送 RECOVER 消息。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2021-02-28</div>
+                <div class="tl-content">
+                    <strong>数据预览与 Jackson 升级</strong> — 增加数据预览功能，升级 Jackson 版本。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2021-04-28</div>
+                <div class="tl-content">
+                    <strong>ES HTTPS 支持</strong> — ES 数据源增加 HTTPS 配置选项。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2021-05-09</div>
+                <div class="tl-content">
+                    <strong>ClickHouse 数据监控</strong> — 第二种 JDBC 数据源接入。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2021-05-30</div>
+                <div class="tl-content">
+                    <strong>发布 0.4-RELEASE</strong> — 增加设计图，ES 表头字段设置功能。
+                </div>
+            </div>
+        </div>
+
+        <h4>第四阶段：架构重构与安全加固（2021.11 — 2022.04）</h4>
+        <div class="timeline">
+            <div class="tl-item">
+                <div class="tl-date">2021-11-01</div>
+                <div class="tl-content">
+                    <strong>飞书机器人报警</strong> — 报警方式再添一员。
+                </div>
+            </div>
+            <div class="tl-item tl-highlight">
+                <div class="tl-date">2021-12-14 ~ 2022-01-17</div>
+                <div class="tl-content">
+                    <strong>Log4Shell 漏洞应急</strong> — Log4j2 从 2.16.0 → 2.17.0 → 2.17.1，三次紧急升级，响应当年最大的 Log4Shell 安全漏洞。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-03-29</div>
+                <div class="tl-content">
+                    <strong>移除 SPI 模块</strong> — Aping 贡献，移除 frostmourne-spi 独立模块，将消息发送功能内聚到 monitor 主服务，简化架构。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-04-04</div>
+                <div class="tl-content">
+                    <strong>发布 0.5-RELEASE</strong> — 补充飞书消息发送器，报警消息增加 text/markdown 格式选项。
+                </div>
+            </div>
+            <div class="tl-item tl-highlight">
+                <div class="tl-date">2022-04-19</div>
+                <div class="tl-content">
+                    <strong>移除 xxl-job，自研调度引擎</strong> — <span class="tag tag-red">重大架构变更</span> 去掉外部 xxl-job 依赖，内置实现基于 MySQL 行锁 + 时间环的分布式调度（即当前 <code>JobScheduleHelper</code>），降低部署复杂度。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-04-21</div>
+                <div class="tl-content">
+                    <strong>K8s 部署支持</strong> — 增加 K8s 部署方式说明和 ZIP 包分发。
+                </div>
+            </div>
+        </div>
+
+        <h4>第五阶段：功能爆发期（2022.05 — 2022.06）</h4>
+        <div class="timeline">
+            <div class="tl-item">
+                <div class="tl-date">2022-05-02</div>
+                <div class="tl-content">
+                    <strong>ES8 支持</strong> — 同时兼容 ES 6.x 和 ES 8.x 客户端。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-05-04</div>
+                <div class="tl-content">
+                    <strong>分桶统计 + 静默表达式</strong> — ES 数据增加分桶统计规则；Aping 贡献静默判断表达式（json-path 语法）。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-05-07</div>
+                <div class="tl-content">
+                    <strong>PING 监控</strong> — 连通性监控首次接入。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-05-11</div>
+                <div class="tl-content">
+                    <strong>SkyWalking 监控</strong> — 增加 skywalking-log、skywalking-alarm 数据监控。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-05-12</div>
+                <div class="tl-content">
+                    <strong>Prometheus 监控</strong> — PromQL 数据源接入。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-05-13</div>
+                <div class="tl-content">
+                    <strong>发布 0.7.1-RELEASE</strong> — 持续 N 次满足规则才报警（ALERT_CONDITION）；Prometheus 监控优化。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-05-15</div>
+                <div class="tl-content">
+                    <strong>报警升级</strong> — Aping 贡献报警升级功能，连续报警 N 次后升级通知。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-05-18</div>
+                <div class="tl-content">
+                    <strong>模块更名</strong> — <code>frostmourne-core</code> 改名为 <code>frostmourne-common</code>，即当前的公共模块。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-06-07</div>
+                <div class="tl-content">
+                    <strong>环比监控</strong> — 增加环比监控规则（ring_than）。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-06-09</div>
+                <div class="tl-content">
+                    <strong>IoTDB + Telnet</strong> — 两天内连续接入 IoTDB 时序数据库和 Telnet 端口连通监控。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-06-30</div>
+                <div class="tl-content">
+                    <strong>SqlServer 监控</strong> — 第三种 JDBC 数据源，数据源类型达 11 种。
+                </div>
+            </div>
+        </div>
+
+        <h4>第六阶段：成熟与发布 1.0（2022.07 — 2023.03）</h4>
+        <div class="timeline">
+            <div class="tl-item">
+                <div class="tl-date">2022-07-04</div>
+                <div class="tl-content">
+                    <strong>英语国际化</strong> — 完成英语国际化翻译，增加国际化支持。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-08-04</div>
+                <div class="tl-content">
+                    <strong>JDK 兼容性扩展</strong> — limbo 贡献，修改启动脚本支持 JDK 11、13；代码风格规范化。
+                </div>
+            </div>
+            <div class="tl-item tl-highlight">
+                <div class="tl-date">2022-09-15 ~ 09-16</div>
+                <div class="tl-content">
+                    <strong>敏感信息加密</strong> — limbo 贡献，实现敏感信息（数据库用户名/密码）加密处理，引入 Lombok，重构 padAlarm 方法。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-09-19</div>
+                <div class="tl-content">
+                    <strong>发布 0.9-RELEASE</strong> — 进入 1.0-SNAPSHOT 开发。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-10-09</div>
+                <div class="tl-content">
+                    <strong>Prometheus query_range</strong> — 增加 <code>/api/v1/query_range</code> 查询监控支持。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2022-11-19</div>
+                <div class="tl-content">
+                    <strong>监控转团队</strong> — 增加监控转团队功能；dependabot 自动升级 pagehelper。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2023-01-02</div>
+                <div class="tl-content">
+                    <strong>LDAP 自动建用户</strong> — LDAP 用户验证通过但系统不存在时自动创建。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2023-02-24</div>
+                <div class="tl-content">
+                    <strong>OneMessage 机器人</strong> — 增加第 7 种报警方式；修复 ES8 查询排序问题。
+                </div>
+            </div>
+            <div class="tl-item tl-highlight">
+                <div class="tl-date">2023-03-25</div>
+                <div class="tl-content">
+                    <strong>发布 1.0-RELEASE</strong> — 里程碑版本，项目进入成熟期。此后修复 ES8 数据下载问题。
+                </div>
+            </div>
+        </div>
+
+        <h4>第七阶段：维护期（2024.10 — 至今）</h4>
+        <div class="timeline">
+            <div class="tl-item">
+                <div class="tl-date">2024-10-21</div>
+                <div class="tl-content">
+                    <strong>Office365 兼容修复</strong> — qiufanchao 贡献，修复 EmailSender 和 EmailHelper 的 Office365 兼容问题。
+                </div>
+            </div>
+            <div class="tl-item">
+                <div class="tl-date">2026-04-17</div>
+                <div class="tl-content">
+                    <strong>安全风险说明</strong> — nfw999 贡献，补充 HTTP 数据源 SSRF 安全风险说明文档，强化安全意识。
+                </div>
+            </div>
+        </div>
+
+        <h3>贡献者统计</h3>
+        <p>项目由汽车之家团队主导开发，同时接受社区贡献。以下为 Git 提交统计（kechangqing 与 kcq 为同一人不同 Git 配置）：</p>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>贡献者</th><th style="width:100px">提交数</th><th>主要贡献领域</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td><strong>kechangqing / kcq</strong></td>
+                        <td>238</td>
+                        <td>项目创始人，核心架构设计与绝大部分功能开发：调度引擎、数据源接入、规则引擎、报警体系</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Aping</strong>（wuaping）</td>
+                        <td>46</td>
+                        <td>静默表达式、报警升级、消息格式（text/markdown）、email 配置、Druid 优化</td>
+                    </tr>
+                    <tr>
+                        <td><strong>limbo</strong>（limboinf）</td>
+                        <td>42</td>
+                        <td>敏感信息加密、Lombok 集成、代码风格规范化、JDK 兼容性、国际化</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Happy Li</strong></td>
+                        <td>19</td>
+                        <td>Docker 容器化支持：Dockerfile、docker-compose、分阶段编译、参数注入</td>
+                    </tr>
+                    <tr>
+                        <td><strong>xiami</strong></td>
+                        <td>6</td>
+                        <td>Initial commit、日志采集文档</td>
+                    </tr>
+                    <tr>
+                        <td><strong>qiufanchao</strong></td>
+                        <td>3</td>
+                        <td>Office365 邮件发送兼容修复</td>
+                    </tr>
+                    <tr>
+                        <td><strong>nfw999</strong></td>
+                        <td>2</td>
+                        <td>安全风险说明文档</td>
+                    </tr>
+                    <tr>
+                        <td><strong>dependabot[bot]</strong></td>
+                        <td>2</td>
+                        <td>自动依赖升级（commons-io、pagehelper）</td>
+                    </tr>
+                    <tr>
+                        <td><strong>huaqiu2022</strong></td>
+                        <td>1</td>
+                        <td>HTTP 请求代理设置支持</td>
+                    </tr>
+                    <tr>
+                        <td><strong>wxmclub</strong></td>
+                        <td>1</td>
+                        <td>恢复通知开关功能</td>
+                    </tr>
+                    <tr>
+                        <td><strong>fangpeng</strong></td>
+                        <td>1</td>
+                        <td>用户管理</td>
+                    </tr>
+                    <tr>
+                        <td><strong>HotStar</strong></td>
+                        <td>1</td>
+                        <td>测试代码清理</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>关键架构演进节点</h3>
+        <div class="callout">
+            <strong>2022-04-19：移除 xxl-job，自研调度引擎</strong>
+            这是项目最重要的架构决策之一。早期依赖外部 xxl-job-admin 服务做调度，部署复杂。kechangqing 借鉴 xxl-job 思想，用 MySQL 行锁 + 时间环（Time Ring）自研轻量调度引擎，内置于 monitor 服务中，从此<strong>单服务即可完成调度与执行</strong>，大幅降低部署门槛。
+        </div>
+        <div class="callout">
+            <strong>2022-03-29：移除 SPI 模块，架构内聚</strong>
+            早期有独立的 <code>frostmourne-spi</code> 模块负责消息发送。Aping 将其移除并内聚到 monitor 主服务，简化为当前的三模块结构（vue / common / monitor）。
+        </div>
+        <div class="callout">
+            <strong>2022-05：策略模式体系成型</strong>
+            一个月内密集接入 5 种数据源（PING/SkyWalking/Prometheus/IoTDB/Telnet）+ 环比规则 + 报警升级。这得益于 <code>IMetric</code> / <code>IRule</code> 策略接口的抽象设计，使得新增数据源只需新增实现类，验证了架构的可扩展性。
+        </div>
+        <div class="callout">
+            <strong>2021-12：Log4Shell 应急响应</strong>
+            Log4j2 漏洞爆发后，一个月内完成 2.16.0 → 2.17.0 → 2.17.1 三次紧急升级，体现了项目对安全事件的快速响应能力。
+        </div>
+    </section>
+
+    <!-- ==================== 17. 总结与展望 ==================== -->
+    <section id="sec17">
+        <h2><span class="icon">17</span>总结与展望</h2>
+
+        <h3>项目优势</h3>
+        <ul>
+            <li><strong>低门槛</strong>：写一条查询即可完成监控配置，无需编写代码</li>
+            <li><strong>高扩展性</strong>：策略模式贯穿全程，新增数据源/报警方式只需新增实现类</li>
+            <li><strong>调度可靠</strong>：类 xxl-job 的调度引擎，快慢线程池隔离，misfire 补偿机制</li>
+            <li><strong>报警智能</strong>：静默、升级、恢复通知、时段控制，防止消息轰炸</li>
+            <li><strong>权限完善</strong>：三级组织模型 + 数据隔离 + LDAP 支持</li>
+        </ul>
+
+        <h3>待改进点</h3>
+        <ul>
+            <li>Spring Boot 版本较旧（2.3.1），可考虑升级至 2.7.x 或 3.x</li>
+            <li>前端基于 Vue 2 + Element UI，可考虑升级至 Vue 3 + Element Plus</li>
+            <li>调度依赖 MySQL 行锁，超大规模场景下可能成为瓶颈，可考虑引入 Redis 分布式锁</li>
+            <li>缺乏程序自身日志采集与查询（已在规划中）</li>
+            <li>国际化不完整（已在规划中）</li>
+        </ul>
+
+        <h3>后续规划（来自 README）</h3>
+        <div class="card-grid">
+            <div class="card"><div class="card-title">数据源扩展</div><div class="card-desc">Loki、MongoDB、Redis、Oracle、阿里云/腾讯云/华为云日志</div></div>
+            <div class="card"><div class="card-title">智能检测</div><div class="card-desc">3-sigma 离群点检测、时序异常检测算法</div></div>
+            <div class="card"><div class="card-title">对象迭代器</div><div class="card-desc">动态生成监控查询语句，实现数据遍历监控</div></div>
+            <div class="card"><div class="card-title">报警增强</div><div class="card-desc">报警组支持、发送时段控制、报警消息短链接优化</div></div>
+        </div>
+
+        <div class="callout success">
+            <strong>总体评价</strong>
+            Frostmourne 是一个设计清晰、代码质量较高的开源监控项目。它巧妙地将"数据查询 + 规则判定 + 消息发送"三段式流程用策略模式解耦，调度引擎借鉴 xxl-job 的成熟方案，保证了可靠性。对于需要监控多种数据源、希望统一管理报警的团队，是一个值得深入使用和二次开发的优秀项目。
+        </div>
+    </section>
+
+    <footer>
+        <p>Frostmourne 技术报告 · 基于 v1.0-RELEASE 源码分析 · 2026-07-12</p>
+        <p>Github: github.com/AutohomeCorp/frostmourne · Gitee: gitee.com/tim_guai/frostmourne</p>
+    </footer>
+</div>
+
+</body>
+</html>
