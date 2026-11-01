@@ -1,0 +1,2060 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="监控告警系统的告警生命周期技术报告：三层生命周期模型、状态机、通知与事件闭环、数据模型、架构设计与质量治理。">
+<title>告警生命周期 · 技术研究报告</title>
+<style>
+  :root{
+    --bg:#f4f6f9;
+    --paper:#ffffff;
+    --ink:#111827;
+    --ink-2:#374151;
+    --muted:#6b7280;
+    --line:#e5e9f0;
+    --line-2:#d3dae6;
+    --accent:#2563eb;
+    --accent-2:#1d4ed8;
+    --accent-soft:#eef4ff;
+    --fire:#e8590c;
+    --fire-soft:#fff3ea;
+    --ok:#0f7b5f;
+    --ok-soft:#e9f7f2;
+    --incident:#6d28d9;
+    --incident-soft:#f4efff;
+    --warn:#a16207;
+    --warn-soft:#fdf8e7;
+    --danger:#be123c;
+    --danger-soft:#fff1f4;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(16,24,40,.04), 0 10px 30px rgba(16,24,40,.055);
+    --mono:ui-monospace, SFMono-Regular, "Cascadia Code", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+    --sans:-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Source Han Sans SC", sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:24px;-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.75;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline;text-underline-offset:3px}
+  a[target="_blank"]::after{content:"↗";font-size:.72em;margin-left:3px;color:var(--muted);vertical-align:super}
+  h1,h2,h3,h4{color:var(--ink);font-weight:750;letter-spacing:-.015em}
+  p{margin:0 0 15px}
+  ul,ol{margin:0 0 16px;padding-left:22px}
+  li{margin:6px 0}
+  strong{font-weight:650;color:var(--ink)}
+  em{font-style:normal;color:var(--accent-2);font-weight:600}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+  /* ---------- reading progress ---------- */
+  #progress{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,#2563eb,#6d28d9,#e8590c);z-index:120;transition:width .08s linear}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;overflow:hidden;background:#0a1020;color:#fff;padding:74px 0 54px}
+  .hero::before{content:"";position:absolute;inset:0;background:
+    radial-gradient(900px 460px at 12% -12%, rgba(37,99,235,.55), transparent 62%),
+    radial-gradient(760px 400px at 86% -4%, rgba(109,40,217,.42), transparent 62%),
+    radial-gradient(620px 340px at 58% 112%, rgba(232,89,12,.22), transparent 64%)}
+  .hero::after{content:"";position:absolute;inset:0;background-image:
+    linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+    background-size:46px 46px;
+    -webkit-mask-image:radial-gradient(ellipse at 50% 0%,#000 25%,transparent 72%);
+    mask-image:radial-gradient(ellipse at 50% 0%,#000 25%,transparent 72%)}
+  .hero .wrap{position:relative;z-index:1}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;padding:6px 13px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.05);color:#a9b9d8;font-size:11.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase}
+  .eyebrow .pulse{width:6px;height:6px;border-radius:50%;background:#38bdf8;box-shadow:0 0 0 0 rgba(56,189,248,.6);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(56,189,248,.55)}70%{box-shadow:0 0 0 9px rgba(56,189,248,0)}100%{box-shadow:0 0 0 0 rgba(56,189,248,0)}}
+  .hero h1{font-size:clamp(48px,7.2vw,86px);line-height:1.02;letter-spacing:-.035em;margin:24px 0 0;color:#fff;font-weight:800}
+  .hero h1 .en{display:block;margin-top:16px;font-size:clamp(12px,1.3vw,15px);letter-spacing:.32em;color:#7f93b8;font-weight:600;text-transform:uppercase}
+  .lede{margin:22px 0 0;max-width:790px;font-size:clamp(17px,1.65vw,20px);line-height:1.72;color:#c4d0e4}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:30px;color:#8ea2c4;font-size:12.5px;letter-spacing:.02em}
+  .meta span{display:inline-flex;align-items:center;gap:8px}
+  .meta span+span::before{content:"";width:3px;height:3px;border-radius:50%;background:#5b6c8c}
+  .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:34px;padding-top:26px;border-top:1px solid rgba(255,255,255,.13)}
+  .stat b{display:block;font-size:30px;line-height:1.1;color:#fff;font-weight:750;letter-spacing:-.02em}
+  .stat span{display:block;margin-top:6px;font-size:12px;color:#8ea2c4;letter-spacing:.04em}
+
+  /* ---------- layout ---------- */
+  .layout{max-width:1180px;margin:0 auto;padding:44px 28px 96px;display:grid;grid-template-columns:238px minmax(0,1fr);gap:56px;align-items:start}
+  main{min-width:0}
+
+  /* ---------- toc ---------- */
+  .toc{position:sticky;top:24px;max-height:calc(100vh - 48px);overflow:auto;font-size:13px;padding-right:4px;scrollbar-width:thin}
+  .toc-title{font-size:10.5px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-bottom:12px;font-weight:700}
+  .toc ol{list-style:none;margin:0;padding:0;border-left:1px solid var(--line-2)}
+  .toc li{margin:0}
+  .toc a{display:block;padding:6px 0 6px 14px;margin-left:-1px;border-left:2px solid transparent;color:var(--ink-2);line-height:1.45}
+  .toc a:hover{color:var(--accent);text-decoration:none}
+  .toc a.active{color:var(--accent);border-left-color:var(--accent);font-weight:650;background:linear-gradient(90deg,var(--accent-soft),transparent 92%)}
+  .toc-foot{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);line-height:1.6}
+
+  /* ---------- sections ---------- */
+  section{scroll-margin-top:24px}
+  section+section{margin-top:76px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:26px}
+  .sec-num{font:700 12px/1 var(--mono);color:var(--accent);letter-spacing:.08em;flex:none;padding-top:7px}
+  h2{font-size:clamp(24px,2.7vw,32px);line-height:1.25;margin:0;font-weight:760}
+  h3{font-size:20px;margin:40px 0 12px}
+  h4{font-size:16px;margin:24px 0 8px}
+  .sec-lede{font-size:17px;color:var(--ink-2);line-height:1.82;margin-bottom:26px;max-width:860px}
+  .small{font-size:13.5px;color:var(--muted)}
+  .muted{color:var(--muted)}
+
+  /* ---------- cards & grids ---------- */
+  .grid{display:grid;gap:16px;margin:20px 0}
+  .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow)}
+  .card h4{margin:0 0 8px;font-size:15.5px}
+  .card p{font-size:14.5px;color:var(--ink-2)}
+  .card p:last-child{margin-bottom:0}
+  .card .kicker{display:inline-block;font:700 10.5px/1 var(--mono);letter-spacing:.1em;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:4px 6px;margin-bottom:10px}
+
+  /* ---------- key list ---------- */
+  .keylist{list-style:none;padding:0;margin:22px 0;display:grid;gap:12px;counter-reset:k}
+  .keylist li{counter-increment:k;position:relative;padding:15px 18px 15px 54px;background:#fff;border:1px solid var(--line);border-radius:12px;margin:0;font-size:15px;line-height:1.72;box-shadow:0 1px 1px rgba(16,24,40,.03)}
+  .keylist li::before{content:counter(k,decimal-leading-zero);position:absolute;left:16px;top:15px;font:700 11px/1.6 var(--mono);color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:2px 5px}
+
+  /* ---------- callouts ---------- */
+  .callout{display:grid;grid-template-columns:auto 1fr;gap:13px;padding:16px 18px;border-radius:12px;border:1px solid;margin:22px 0;font-size:15px;line-height:1.72}
+  .callout .ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-weight:800;font-size:13px;color:#fff;flex:none;margin-top:1px}
+  .callout .co-title{display:block;font-weight:700;margin-bottom:3px;color:var(--ink)}
+  .callout p:last-child{margin-bottom:0}
+  .callout.note{background:var(--accent-soft);border-color:#d7e3ff}
+  .callout.note .ic{background:var(--accent)}
+  .callout.warn{background:var(--fire-soft);border-color:#ffdcc4}
+  .callout.warn .ic{background:var(--fire)}
+  .callout.ok{background:var(--ok-soft);border-color:#c8ebdf}
+  .callout.ok .ic{background:var(--ok)}
+  .callout.risk{background:var(--danger-soft);border-color:#ffd1db}
+  .callout.risk .ic{background:#be123c}
+
+  /* ---------- tables ---------- */
+  .table-wrap{margin:20px 0;border:1px solid var(--line);border-radius:12px;overflow:auto;background:#fff;box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;line-height:1.6;min-width:580px}
+  caption{caption-side:top;text-align:left;padding:12px 16px 0;font-size:12.5px;color:var(--muted)}
+  th{text-align:left;font-weight:650;color:var(--ink-2);background:#f7f9fc;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap;font-size:12.5px;letter-spacing:.02em}
+  td{padding:11px 14px;border-bottom:1px solid #eef1f6;vertical-align:top;color:var(--ink-2)}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:#fbfcfe}
+  td strong{color:var(--ink)}
+  td code{white-space:nowrap}
+  .t-contract td:first-child,.t-contract th:first-child{white-space:nowrap}
+  .t-phase td:first-child,.t-phase th:first-child{white-space:nowrap}
+
+  /* ---------- badges ---------- */
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:650;line-height:1.7;white-space:nowrap;vertical-align:1px}
+  .badge::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex:none}
+  .badge.fire{background:var(--fire-soft);color:#b8460a}
+  .badge.ok{background:var(--ok-soft);color:#0b6b52}
+  .badge.pend{background:var(--warn-soft);color:#854d0e}
+  .badge.inc{background:var(--incident-soft);color:#5b21b6}
+  .badge.gray{background:#eef1f5;color:#4b5563}
+  .badge.blue{background:var(--accent-soft);color:var(--accent-2)}
+
+  /* ---------- code ---------- */
+  .code{margin:22px 0;border-radius:12px;overflow:hidden;border:1px solid #1b2740;background:#0c1424;box-shadow:0 8px 24px rgba(10,16,32,.16)}
+  .code-head{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#111c31;border-bottom:1px solid #1b2740;color:#8fa3c8;font:11.5px/1.4 var(--mono)}
+  .code-head .dots{display:flex;gap:5px;margin-right:4px}
+  .code-head .dots i{width:8px;height:8px;border-radius:50%;display:block;background:#3a4a68}
+  .code-head .dots i:nth-child(1){background:#ff5f57}
+  .code-head .dots i:nth-child(2){background:#febc2e}
+  .code-head .dots i:nth-child(3){background:#28c840}
+  .code-head .lang{margin-left:auto;color:#5f7599;letter-spacing:.06em;text-transform:uppercase;font-size:10px}
+  pre{margin:0;padding:16px 18px;overflow:auto;color:#d7e2f4;font:12.7px/1.7 var(--mono);tab-size:2}
+  code{font-family:var(--mono)}
+  p code,li code,td code{background:#edf1f7;color:#1f2d43;padding:.1em .38em;border-radius:5px;font-size:.87em;border:1px solid #e3e9f2}
+  pre .c{color:#6f86a8}
+  pre .k{color:#7dd3fc}
+  pre .s{color:#a7f3d0}
+  pre .n{color:#fbbf24}
+  pre .f{color:#c4b5fd}
+
+  /* ---------- figures ---------- */
+  figure{margin:26px 0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:var(--shadow)}
+  figure svg{display:block;width:100%;height:auto}
+  figcaption{margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.62}
+  figcaption b{color:var(--ink-2)}
+  svg text{font-family:var(--sans)}
+
+  /* ---------- journey ---------- */
+  .journey{list-style:none;padding:0;margin:24px 0;position:relative}
+  .journey li{position:relative;padding:0 0 20px 94px;margin:0;font-size:14.5px;line-height:1.65;color:var(--ink-2)}
+  .journey li::before{content:attr(data-t);position:absolute;left:0;top:1px;width:70px;text-align:right;font:600 11.5px/1.7 var(--mono);color:var(--accent)}
+  .journey li::after{content:"";position:absolute;left:82px;top:9px;bottom:-1px;width:1px;background:var(--line-2)}
+  .journey li:last-child::after{display:none}
+  .journey li .dot{position:absolute;left:78px;top:6px;width:9px;height:9px;border-radius:50%;background:#fff;border:2px solid var(--accent);z-index:1}
+  .journey li:last-child{padding-bottom:0}
+  .journey li .layer-tag{font:700 10px/1 var(--mono);letter-spacing:.08em;color:var(--muted);display:inline-block;margin-right:7px;border:1px solid var(--line-2);border-radius:4px;padding:2px 4px;vertical-align:1px}
+
+  /* ---------- lane diagram ---------- */
+  .lanes{margin:24px 0}
+  .lane{display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px;padding:18px 20px;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:12px;background:linear-gradient(90deg,var(--soft),#fff 46%);box-shadow:0 1px 1px rgba(16,24,40,.03)}
+  .lane+.lane{margin-top:10px}
+  .lane-name{font-size:14px;font-weight:750;color:var(--c);line-height:1.4}
+  .lane-name small{display:block;font:600 10px/1.6 var(--mono);letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+  .lane-body p{margin:0;font-size:13.5px;color:var(--ink-2);line-height:1.65}
+  .lane-states{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .lane-states span{font:600 11px/1.5 var(--mono);padding:3px 7px;border-radius:6px;background:#fff;border:1px solid var(--line-2);color:var(--ink-2)}
+  .lane-link{display:grid;grid-template-columns:150px 1fr;gap:20px;padding:6px 20px;color:var(--muted);font-size:11.5px}
+  .lane-link span:last-child{font-family:var(--mono);letter-spacing:.04em}
+
+  /* ---------- architecture ---------- */
+  .arch{margin:24px 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:var(--shadow)}
+  .arch-row{display:grid;grid-template-columns:104px minmax(0,1fr);gap:14px;align-items:center;padding:9px 0}
+  .arch-label{font:700 10.5px/1.4 var(--mono);letter-spacing:.08em;color:var(--muted);text-transform:uppercase;text-align:right}
+  .arch-boxes{display:flex;flex-wrap:wrap;gap:7px}
+  .arch-box{font-size:12.5px;padding:7px 11px;border:1px solid var(--line-2);border-radius:8px;background:#f8fafc;color:var(--ink-2);line-height:1.4}
+  .arch-box.core{border-color:#bfd3ff;background:var(--accent-soft);color:var(--accent-2);font-weight:650}
+  .arch-box.warm{border-color:#ffd9c2;background:var(--fire-soft);color:#b8460a;font-weight:650}
+  .arch-box.purple{border-color:#ddd0ff;background:var(--incident-soft);color:#5b21b6;font-weight:650}
+  .arch-down{display:grid;grid-template-columns:104px 1fr;gap:14px;color:#9aa7ba;font-size:11px;line-height:1;padding:1px 0}
+  .arch-down span:last-child{display:flex;align-items:center;gap:8px}
+  .arch-down span:last-child::before{content:"↓";width:auto;height:auto;background:none;margin-left:20px;color:#94a3b8;font-size:12px;line-height:1}
+  .arch-down em{font-style:normal;font-family:var(--mono);letter-spacing:.03em;color:var(--muted)}
+  .arch-cross{margin-top:8px;padding-top:12px;border-top:1px dashed var(--line-2);display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+  .arch-cross b{font:700 10.5px var(--mono);letter-spacing:.08em;color:var(--muted);margin-right:2px}
+
+  /* ---------- alert card mock ---------- */
+  .alert-card{max-width:520px;margin:24px 0;background:#fff;border:1px solid var(--line);border-left:4px solid var(--fire);border-radius:12px;padding:18px 20px;box-shadow:0 12px 30px rgba(16,24,40,.1)}
+  .ac-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .ac-top .time{margin-left:auto;font:600 11px var(--mono);color:var(--muted)}
+  .alert-card h4{margin:0 0 4px;font-size:16.5px;line-height:1.45}
+  .ac-labels{font:11.5px/1.6 var(--mono);color:var(--muted);word-break:break-word}
+  .ac-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0;padding:12px 0;border-top:1px solid #f0f2f6;border-bottom:1px solid #f0f2f6}
+  .ac-metrics b{display:block;font-size:18px;line-height:1.2;color:var(--ink)}
+  .ac-metrics span{font-size:11px;color:var(--muted)}
+  .ac-actions{display:flex;flex-wrap:wrap;gap:6px}
+  .ac-actions span{font-size:11.5px;font-weight:600;color:var(--accent-2);background:var(--accent-soft);border:1px solid #d7e3ff;border-radius:6px;padding:4px 8px}
+
+  /* ---------- formula ---------- */
+  .formula{margin:20px 0;padding:16px 18px;background:#0f172a;color:#dbe4f0;border-radius:12px;font:13px/1.8 var(--mono);overflow:auto}
+  .formula .lbl{color:#7f93b8;display:block;margin-bottom:4px;font-size:11px;letter-spacing:.08em}
+
+  /* ---------- checklist ---------- */
+  .checklist{list-style:none;padding:0;margin:18px 0;display:grid;gap:8px}
+  .checklist li{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:#fff;border:1px solid var(--line);border-radius:10px;font-size:14.3px;margin:0;line-height:1.6}
+  .checklist input{margin-top:5px;width:16px;height:16px;accent-color:var(--accent);flex:none}
+  .checklist .grp{font:700 11px var(--mono);letter-spacing:.1em;color:var(--muted);margin:14px 0 2px;padding-left:2px}
+
+  /* ---------- compare ---------- */
+  .compare{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;margin:22px 0}
+  .compare>div{padding:18px 20px}
+  .compare>div+div{border-left:1px solid var(--line)}
+  .compare h4{margin:0 0 8px;font-size:13.5px;letter-spacing:.02em}
+  .compare ul{margin:0;padding-left:18px;font-size:14px}
+  .compare .good h4{color:var(--ok)}
+  .compare .bad h4{color:var(--danger)}
+
+  /* ---------- references ---------- */
+  .refs{list-style:none;padding:0;margin:20px 0;counter-reset:r}
+  .refs li{counter-increment:r;position:relative;padding:10px 0 10px 42px;border-bottom:1px solid var(--line);font-size:14px;margin:0;line-height:1.65}
+  .refs li:last-child{border-bottom:none}
+  .refs li::before{content:"[" counter(r) "]";position:absolute;left:0;top:11px;font:600 11.5px var(--mono);color:var(--accent)}
+  .refs li span{display:block;color:var(--muted);font-size:12.5px}
+  sup.ref{font-size:.68em;line-height:0;vertical-align:super}
+  sup.ref a{color:var(--accent);font-weight:700;text-decoration:none;padding:0 1px}
+
+  /* ---------- misc ---------- */
+  .pullquote{margin:28px 0;padding:18px 24px;border-left:3px solid var(--ink);background:#fff;font-size:17px;line-height:1.7;color:var(--ink);font-weight:500}
+  .pill-row{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+  .pill{font:600 11.5px/1.6 var(--mono);border:1px solid var(--line-2);background:#fff;border-radius:999px;padding:3px 10px;color:var(--ink-2)}
+  #top{position:fixed;right:22px;bottom:22px;width:42px;height:42px;border-radius:50%;border:1px solid var(--line-2);background:#fff;color:var(--ink-2);box-shadow:var(--shadow);display:grid;place-items:center;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:60;font-size:16px}
+  #top.show{opacity:1;pointer-events:auto}
+  #top:hover{transform:translateY(-2px)}
+  footer{border-top:1px solid var(--line);background:#fff}
+  .footer-inner{max-width:1180px;margin:0 auto;padding:30px 28px 44px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--muted)}
+  .footer-inner b{color:var(--ink-2)}
+
+  @media (max-width:1080px){
+    .layout{grid-template-columns:1fr;gap:26px;padding-top:28px}
+    .toc{position:static;max-height:min(46vh,420px);overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff;padding:16px 18px;box-shadow:var(--shadow)}
+    .toc ol{columns:2;column-gap:26px}
+    .toc a{padding:5px 0 5px 12px}
+    .toc-foot{display:none}
+  }
+  @media (max-width:900px){
+    .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  @media (max-width:760px){
+    .wrap,.layout,.footer-inner{padding-left:18px;padding-right:18px}
+    .hero{padding:54px 0 42px}
+    .stats{grid-template-columns:repeat(2,1fr);gap:16px}
+    .stat b{font-size:26px}
+    .grid-2,.grid-3,.grid-4{grid-template-columns:1fr}
+    .toc ol{columns:1}
+    .compare{grid-template-columns:1fr}
+    .compare>div+div{border-left:0;border-top:1px solid var(--line)}
+    .lane,.lane-link{grid-template-columns:1fr;gap:8px}
+    .arch-row{grid-template-columns:1fr;gap:6px}
+    .arch-label{text-align:left}
+    .arch-down{display:none}
+    .journey li{padding-left:78px}
+    .journey li::before{width:56px;font-size:10.5px}
+    .journey li::after{left:66px}
+    .journey li .dot{left:62px}
+    .alert-card{max-width:none}
+    .ac-metrics{grid-template-columns:1fr 1fr}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+    html{scroll-behavior:auto}
+  }
+  @media print{
+    #progress,#top,.toc{display:none!important}
+    body{background:#fff;font-size:11pt}
+    .hero{background:#fff;color:#000;padding:0 0 18pt;border-bottom:1pt solid #999}
+    .hero::before,.hero::after{display:none}
+    .hero h1{color:#000;font-size:30pt}
+    .hero h1 .en,.lede,.meta,.eyebrow,.stats{color:#333}
+    .stat b{color:#000}
+    .stats{border-top-color:#ccc}
+    .layout{display:block;padding:18pt 0 0;max-width:none}
+    section+section{margin-top:26pt}
+    a{color:#000;text-decoration:none}
+    a[target="_blank"]::after{content:""}
+    .card,.callout,figure,.table-wrap,.code,.keylist li{box-shadow:none}
+    .card,.callout,figure,.code,tr{break-inside:avoid}
+    pre{white-space:pre-wrap;font-size:8.5pt}
+  }
+</style>
+</head>
+<body>
+<div id="progress" aria-hidden="true"></div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow"><span class="pulse" aria-hidden="true"></span>Monitoring / Alerting · 技术研究报告</div>
+    <h1>告警生命周期<span class="en">The Alert Lifecycle</span></h1>
+    <p class="lede">从一次指标越界，到一条可执行的通知，再到一次被复盘的故障——拆解监控告警系统中最容易被低估的状态机、数据模型与工程边界。</p>
+    <div class="meta">
+      <span>版本 v1.0</span>
+      <span>2026-11-01</span>
+      <span>适用：告警平台研发 · SRE · 值班负责人</span>
+      <span>约 45 分钟阅读</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>3</b><span>层生命周期</span></div>
+      <div class="stat"><b>5</b><span>个核心状态</span></div>
+      <div class="stat"><b>7</b><span>个端到端阶段</span></div>
+      <div class="stat"><b>12</b><span>条常见反模式</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc" aria-label="报告目录">
+    <div class="toc-title">目录 Contents</div>
+    <ol>
+      <li><a href="#s0">00 · 摘要</a></li>
+      <li><a href="#s1">01 · 问题定义</a></li>
+      <li><a href="#s2">02 · 三层生命周期</a></li>
+      <li><a href="#s3">03 · 告警实例状态机</a></li>
+      <li><a href="#s4">04 · 通知生命周期</a></li>
+      <li><a href="#s5">05 · 事件生命周期</a></li>
+      <li><a href="#s6">06 · 数据模型</a></li>
+      <li><a href="#s7">07 · 系统架构</a></li>
+      <li><a href="#s8">08 · 边界与一致性</a></li>
+      <li><a href="#s9">09 · 质量治理</a></li>
+      <li><a href="#s10">10 · SLO 燃烧率</a></li>
+      <li><a href="#s11">11 · 参考实现</a></li>
+      <li><a href="#s12">12 · 反模式</a></li>
+      <li><a href="#s13">13 · 落地路线图</a></li>
+      <li><a href="#s14">14 · 检查清单</a></li>
+      <li><a href="#s15">15 · 参考资料</a></li>
+      <li><a href="#sa">A · 术语表</a></li>
+      <li><a href="#sb">B · 接口契约</a></li>
+    </ol>
+    <div class="toc-foot">本报告基于 Prometheus / Alertmanager、Grafana、PagerDuty 与 Google SRE Workbook 等公开资料，结合工程实践整理。参数为推荐起点，需按业务校准。</div>
+  </nav>
+
+  <main>
+    <section id="s0">
+      <div class="sec-head"><span class="sec-num">00</span><h2>摘要：先把三个生命周期拆开</h2></div>
+      <p class="sec-lede">“告警生命周期”这个词经常被当成一条流水线：产生 → 通知 → 处理 → 关闭。但在真实系统里，它其实是三条相互独立、通过 ID 关联的生命周期。把它们压进同一个 <code>status</code> 字段，是自研告警平台最常见、也最难回头的结构性错误。</p>
+
+      <ol class="keylist">
+        <li><strong>检测、通知、事件是三层，不是一条状态流。</strong>检测层回答“条件是否成立”，通知层回答“该不该告诉谁”，事件层回答“谁在处理、何时算完”。三层各有自己的状态机、负责人和 SLA。</li>
+        <li><strong>检测层的最小完备状态集是 <code>inactive / pending / firing / resolved</code>，外加与状态正交的“评估健康度”。</strong>无数据、查询失败、序列消失必须单独表达，不能混进 <code>resolved</code>。</li>
+        <li><strong>抑制和静默不是状态，而是通知可见性维度。</strong>它们不该改变底层告警状态，否则抑制解除后无法正确恢复，也无法解释“为什么当时没通知”。</li>
+        <li><strong>恢复路径与触发路径同等重要。</strong>没有恢复通知、恢复不受抑制约束、恢复判定不对称，是“告警不可信”的三大来源。</li>
+        <li><strong>通知层要“至少一次 + 幂等”。</strong>去重键是 fingerprint，分组键是“路由 + group_by”，抑制是有向依赖，静默是有期限的匹配器。</li>
+        <li><strong>事件层必须有 ack、升级超时、重开窗口和合并。</strong>ack 只停止升级，不等于修复；<code>resolved</code>（技术恢复）与 <code>closed</code>（确认闭环）应分离。</li>
+      </ol>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 0-1　三层生命周期的一页纸视图</caption>
+          <thead>
+            <tr><th>层</th><th>基本单元</th><th>核心状态</th><th>主要负责人</th><th>关键指标</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>检测层</strong><br><span class="small">Detection</span></td>
+              <td>告警实例<br><code>rule_id + fingerprint</code></td>
+              <td><span class="badge gray">inactive</span> <span class="badge pend">pending</span> <span class="badge fire">firing</span> <span class="badge ok">resolved</span> <span class="badge gray">unknown</span></td>
+              <td>监控平台</td>
+              <td>评估延迟、误报率、抖动率、漏报率</td>
+            </tr>
+            <tr>
+              <td><strong>通知层</strong><br><span class="small">Notification</span></td>
+              <td>通知 / 告警组<br><code>group_key + revision</code></td>
+              <td><span class="badge gray">queued</span> <span class="badge pend">suppressed</span> <span class="badge blue">dispatched</span> <span class="badge ok">delivered</span> <span class="badge fire">failed</span></td>
+              <td>平台 + 值班</td>
+              <td>送达率、端到端延迟、重复率、抑制命中率</td>
+            </tr>
+            <tr>
+              <td><strong>事件层</strong><br><span class="small">Incident</span></td>
+              <td>事件单<br><code>incident_id</code></td>
+              <td><span class="badge fire">triggered</span> <span class="badge pend">acknowledged</span> <span class="badge inc">escalated</span> <span class="badge ok">resolved</span> <span class="badge gray">closed</span></td>
+              <td>值班 / 事件指挥官</td>
+              <td>MTTA、MTTR、复发率、行动项完成率</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout note">
+        <div class="ic">i</div>
+        <div>
+          <span class="co-title">阅读建议</span>
+          <p>如果你正在从零设计告警平台，先读第 2、3 章建立模型，再读第 6、7 章落数据与架构；如果你在治理现有系统，直接看第 9、12、14 章。第 10 章讨论 SLO 燃烧率，属于检测层的“上游现代化”，不是替代品。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="s1">
+      <div class="sec-head"><span class="sec-num">01</span><h2>问题定义：为什么“生命周期”总是做错</h2></div>
+      <p class="sec-lede">先看一个并不罕见的夜间场景：磁盘使用率在 90% 阈值附近来回抖动，值班同学在 20 分钟里收到 12 条触发与恢复通知；他点了“认领”，指标随即恢复，但事件单仍挂在那里；第二天复盘时，系统里既说不清他真正开始处理的时间，也说不清这算一次故障还是六次。</p>
+
+      <p>这不是阈值调得不好，而是生命周期建模出了三个问题：<strong>状态语义重叠、层间边界缺失、恢复路径没有设计</strong>。阈值只是表象，状态机才是根因。</p>
+
+      <h3>1.1 三个被混为一谈的生命周期</h3>
+      <p>很多自研系统只有一个 <code>alerts</code> 表和一个 <code>status</code> 字段，取值为 <code>pending / firing / acked / resolved / closed</code>。这个设计在第一个月看起来很好用，随后会依次遇到下面这些无法回答的问题：</p>
+      <ul>
+        <li><strong>“ack 之后指标恢复了，状态该是什么？”</strong>——<code>acked</code> 是人的动作，<code>resolved</code> 是检测结果，两者不在一个维度上。</li>
+        <li><strong>“静默期间恢复了，要不要发恢复通知？”</strong>——如果静默直接把状态改成 <code>suppressed</code>，底层状态已经丢了，恢复通知无从判断。</li>
+        <li><strong>“规则删除了，还挂着的告警谁来关？”</strong>——没有“规则生命周期”与“实例生命周期”的区分，就会出现永远 firing 的僵尸告警。</li>
+        <li><strong>“同一个服务 50 台机器同时故障，是 50 个事件还是 1 个？”</strong>——没有分组和事件聚合，通知风暴与事件碎片化同时发生。</li>
+        <li><strong>“MTTR 到底从哪算到哪？”</strong>——没有明确的时间戳定义，指标只能靠猜。</li>
+      </ul>
+
+      <div class="pullquote">状态爆炸的本质，通常不是状态太多，而是把“事实”“可见性”“人的动作”三个维度塞进了同一个枚举。</div>
+
+      <h3>1.2 一条告警的完整旅程</h3>
+      <p>下面用一条真实感足够强的时间线，把三层生命周期串起来。注意每个时刻“系统做了什么”和“人做了什么”是分开的——这正是后面数据模型要记录的东西。</p>
+
+      <ol class="journey">
+        <li data-t="14:02"><span class="dot" aria-hidden="true"></span><span class="layer-tag">检测</span>支付服务的成功率跌破 99.5%，规则表达式首次命中。因为配置了 <code>for: 5m</code>，实例进入 <strong>pending</strong>，此时不通知。</li>
+        <li data-t="14:07"><span class="dot" aria-hidden="true"></span><span class="layer-tag">检测</span>连续 5 分钟满足条件，实例转为 <strong>firing</strong>，写入 <code>firing_at</code>，投递到通知流水线。</li>
+        <li data-t="14:07:30"><span class="dot" aria-hidden="true"></span><span class="layer-tag">通知</span>经过 30 秒 <code>group_wait</code>，同一服务的 6 条相关告警被合并为一个通知组，发给主值班。</li>
+        <li data-t="14:12"><span class="dot" aria-hidden="true"></span><span class="layer-tag">事件</span>值班人点击“认领”，事件从 <strong>triggered</strong> 变为 <strong>acknowledged</strong>，升级计时停止，MTTA = 5 分钟。</li>
+        <li data-t="14:19"><span class="dot" aria-hidden="true"></span><span class="layer-tag">通知</span>值班人把事件链接到排障频道，并静默了同机房另一条已知的连锁告警（30 分钟，带工单号）。</li>
+        <li data-t="14:31"><span class="dot" aria-hidden="true"></span><span class="layer-tag">检测</span>回滚完成后指标恢复，但配置了 <code>keep_firing_for: 5m</code>，实例继续保持 firing，避免瞬时恢复造成误判。</li>
+        <li data-t="14:36"><span class="dot" aria-hidden="true"></span><span class="layer-tag">检测</span>保持期结束，实例转为 <strong>resolved</strong>；因为此前发过触发通知，系统补发一条恢复通知，附带持续 34 分钟与峰值。</li>
+        <li data-t="14:36"><span class="dot" aria-hidden="true"></span><span class="layer-tag">事件</span>事件并未立即关闭：系统进入 10 分钟观察期，确认错误预算不再消耗后才自动 <strong>resolved</strong>；MTTR = 29 分钟。</li>
+        <li data-t="14:50"><span class="dot" aria-hidden="true"></span><span class="layer-tag">事件</span>值班人补充根因、影响面与行动项，事件 <strong>closed</strong>，并自动创建复盘任务。</li>
+      </ol>
+
+      <p>这条时间线里至少有 5 个时间戳会被不同指标使用：<code>active_at</code>、<code>firing_at</code>、<code>notified_at</code>、<code>acked_at</code>、<code>resolved_at</code>。如果数据模型只存一个 <code>created_at</code> 和一个 <code>updated_at</code>，所有度量都会失真。</p>
+
+      <h3>1.3 设计目标与硬约束</h3>
+      <div class="grid grid-3">
+        <div class="card">
+          <span class="kicker">GOAL 01</span>
+          <h4>可解释</h4>
+          <p>任何时刻都能回答：为什么这条告警没通知？为什么通知了？为什么还没恢复？为什么事件关不掉？</p>
+        </div>
+        <div class="card">
+          <span class="kicker">GOAL 02</span>
+          <h4>可恢复</h4>
+          <p>进程重启、网络分区、下游限流之后，状态与通知都能收敛；重试不产生重复打扰，失败不会静默丢失。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">GOAL 03</span>
+          <h4>可审计</h4>
+          <p>谁在何时认领、静默、改规则、关事件，都有不可篡改的时间线，能支撑复盘与合规。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">GOAL 04</span>
+          <h4>可治理</h4>
+          <p>告警质量可度量、可比较、可回归；每条 P1 告警都有 owner、runbook 和测试。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">GOAL 05</span>
+          <h4>可扩展</h4>
+          <p>多租户、多渠道、多区域；新增一个通知渠道或一种检测源，不需要改动状态机。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">CONSTRAINT</span>
+          <h4>三个硬约束</h4>
+          <p>投递只能做到“至少一次”；状态存储是最终一致；通知有不可消除的端到端延迟。设计必须围绕这三点，而不是假设“恰好一次、强一致、实时”。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="s2">
+      <div class="sec-head"><span class="sec-num">02</span><h2>三层生命周期模型</h2></div>
+      <p class="sec-lede">把系统拆成三层之后，每一层都可以独立演进：检测层可以换规则引擎，通知层可以换渠道，事件层可以接 IM 或工单系统。层间只通过稳定的 ID 与事实事件耦合，不共享可变状态。</p>
+
+      <div class="lanes">
+        <div class="lane" style="--c:#e8590c;--soft:#fff7f1">
+          <div class="lane-name">检测层<small>Detection</small></div>
+          <div class="lane-body">
+            <div class="lane-states"><span>inactive</span><span>pending</span><span>firing</span><span>resolved</span><span>+ unknown</span></div>
+            <p>输入指标、日志、链路、事件与合成探测；输出“某个标签组合当前是否处于异常”，以及从何时开始、当前值是多少。负责人是监控平台，交付物是<strong>告警实例</strong>。</p>
+          </div>
+        </div>
+        <div class="lane-link"><span></span><span>↓ 产生 alert instance（fingerprint 稳定）</span></div>
+        <div class="lane" style="--c:#2563eb;--soft:#f3f7ff">
+          <div class="lane-name">通知层<small>Notification</small></div>
+          <div class="lane-body">
+            <div class="lane-states"><span>dedup</span><span>group</span><span>inhibit</span><span>silence</span><span>route</span><span>deliver</span></div>
+            <p>决定“这条告警现在要不要告诉人、告诉谁、通过什么渠道、说几次”。它消费告警实例，产出<strong>通知记录</strong>；不负责判断故障是否真实，也不负责人是否在处理。</p>
+          </div>
+        </div>
+        <div class="lane-link"><span></span><span>↓ 触发 / 升级 incident（dedup_key 稳定）</span></div>
+        <div class="lane" style="--c:#6d28d9;--soft:#f8f4ff">
+          <div class="lane-name">事件层<small>Incident</small></div>
+          <div class="lane-body">
+            <div class="lane-states"><span>triggered</span><span>acknowledged</span><span>escalated</span><span>resolved</span><span>closed</span></div>
+            <p>承载人的协作：认领、升级、拉群、记录时间线、复盘。它聚合告警但不拥有告警状态；一个事件可以关联多条告警，一条告警也可能在生命周期内被合并进不同事件。</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>2.1 层间契约</h3>
+      <p>三层之间最重要的设计不是“怎么调用”，而是“什么可以跨层、什么不可以”。下面这张表建议直接写进架构决策记录（ADR）。</p>
+
+      <div class="table-wrap">
+        <table class="t-contract">
+          <caption>表 2-1　层间契约：允许与禁止</caption>
+          <thead>
+            <tr><th>方向</th><th>允许</th><th>禁止</th><th>原因</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>检测 → 通知</td><td>发送状态变更事实：<code>alert_id</code>、<code>fingerprint</code>、<code>from/to</code>、<code>starts_at</code>、<code>ends_at</code>、labels、value</td><td>让通知层回调修改告警状态</td><td>通知失败不应影响检测事实</td></tr>
+            <tr><td>通知 → 事件</td><td>在首次成功通知后创建或关联事件；携带 <code>dedup_key</code></td><td>每条通知都新建一个事件</td><td>会造成事件碎片化</td></tr>
+            <tr><td>事件 → 通知</td><td>ack / resolve / comment 等人类动作，触发确认或恢复类消息</td><td>用 ack 把告警实例改成 resolved</td><td>人的动作不能伪造检测结果</td></tr>
+            <tr><td>检测 → 事件</td><td>全部关联告警 resolved 时，通知事件层“可以进入恢复观察期”</td><td>直接关闭事件</td><td>指标恢复不等于影响消失</td></tr>
+            <tr><td>任意层 → 审计</td><td>追加不可变事件</td><td>修改历史事件</td><td>复盘与合规依赖时间线完整性</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <div class="ic">!</div>
+        <div>
+          <span class="co-title">最容易踩的边界：ack 不等于 resolve</span>
+          <p>PagerDuty 的模型值得直接借鉴：告警（alert）只能被触发或恢复，不能被认领；事件（incident）才能被认领。<strong>认领只停止升级，不改变故障事实</strong>；如果认领超时仍未恢复，事件会回到 triggered 并继续升级。<sup class="ref"><a href="#ref6">[6]</a></sup></p>
+        </div>
+      </div>
+
+      <h3>2.2 一个事件，多条告警：聚合关系怎么建</h3>
+      <p>推荐用多对多关联表 <code>incident_alert</code>，而不是在告警表里放一个 <code>incident_id</code>。原因很现实：一条告警可能在事件合并时被转移到另一个事件；一个事件也可能在排障过程中不断纳入新的相关告警。多对多 + “当前有效关联”标记，可以保留完整的归属历史。</p>
+      <ul>
+        <li><strong>首次关联</strong>：通知层成功发出第一条 P1/P2 通知时，以 <code>dedup_key</code> 查找打开中的事件；不存在则创建，存在则追加告警。</li>
+        <li><strong>合并</strong>：当两个打开中的事件被判定为同一故障（同服务、同根因、时间重叠），保留一个主事件，另一个置为 <code>merged</code> 并指向 <code>merged_into</code>。</li>
+        <li><strong>拆分</strong>：较少见，但排障中确实会发生（一个事件其实是两个独立故障）。拆分应新建事件并迁移关联，保留审计。</li>
+      </ul>
+    </section>
+
+    <section id="s3">
+      <div class="sec-head"><span class="sec-num">03</span><h2>告警实例状态机</h2></div>
+      <p class="sec-lede">这是整个系统最核心、也最值得写单元测试的部分。状态机的输入是“规则在某个时刻的求值结果”，输出是“状态变更事实”；通知只是这些事实的消费者。</p>
+
+      <figure>
+        <svg viewBox="0 0 900 540" role="img" aria-labelledby="smTitle smDesc">
+          <title id="smTitle">告警实例状态机</title>
+          <desc id="smDesc">inactive、pending、firing、resolved 与 unknown 五个状态，以及条件命中、持续 for、条件消失、数据缺失和再次命中等迁移。</desc>
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+            </marker>
+            <marker id="ar-fire" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/>
+            </marker>
+            <marker id="ar-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#6d28d9"/>
+            </marker>
+          </defs>
+
+          <g>
+            <rect x="30" y="70" width="170" height="70" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+            <text x="115" y="99" text-anchor="middle" font-size="17" font-weight="700" fill="#334155">inactive</text>
+            <text x="115" y="121" text-anchor="middle" font-size="12.5" fill="#64748b">未激活 · 无实例</text>
+          </g>
+          <g>
+            <rect x="330" y="70" width="170" height="70" rx="12" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+            <text x="415" y="99" text-anchor="middle" font-size="17" font-weight="700" fill="#92400e">pending</text>
+            <text x="415" y="121" text-anchor="middle" font-size="12.5" fill="#a16207">已命中 · 等待 for</text>
+          </g>
+          <g>
+            <rect x="630" y="70" width="170" height="70" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+            <text x="715" y="99" text-anchor="middle" font-size="17" font-weight="700" fill="#9a3412">firing</text>
+            <text x="715" y="121" text-anchor="middle" font-size="12.5" fill="#c2410c">触发中 · 已通知</text>
+          </g>
+          <g>
+            <rect x="630" y="330" width="170" height="70" rx="12" fill="#ecfdf5" stroke="#0f766e" stroke-width="1.5"/>
+            <text x="715" y="359" text-anchor="middle" font-size="17" font-weight="700" fill="#115e59">resolved</text>
+            <text x="715" y="381" text-anchor="middle" font-size="12.5" fill="#0f766e">已恢复 · 保留历史</text>
+          </g>
+          <g>
+            <rect x="330" y="330" width="170" height="70" rx="12" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <text x="415" y="359" text-anchor="middle" font-size="17" font-weight="700" fill="#475569">unknown</text>
+            <text x="415" y="381" text-anchor="middle" font-size="12.5" fill="#64748b">无数据 / 评估失败</text>
+          </g>
+
+          <path d="M200,105 L330,105" fill="none" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#ar)"/>
+          <text x="265" y="93" text-anchor="middle" font-size="13" fill="#475569" stroke="#fff" stroke-width="5" paint-order="stroke">条件命中</text>
+
+          <path d="M500,105 L630,105" fill="none" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#ar)"/>
+          <text x="565" y="93" text-anchor="middle" font-size="13" fill="#475569" stroke="#fff" stroke-width="5" paint-order="stroke">持续 ≥ for</text>
+
+          <path d="M330,90 C270,42 190,42 160,70" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <text x="245" y="30" text-anchor="middle" font-size="12" fill="#64748b" stroke="#fff" stroke-width="5" paint-order="stroke">条件消失：回退，不通知</text>
+
+          <path d="M715,140 L715,330" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#ar-fire)"/>
+          <text x="730" y="225" font-size="12.5" fill="#9a3412" stroke="#fff" stroke-width="5" paint-order="stroke">条件消失，且</text>
+          <text x="730" y="244" font-size="12.5" fill="#9a3412" stroke="#fff" stroke-width="5" paint-order="stroke">keep_firing_for 到期</text>
+
+          <path d="M680,330 L680,270 L480,270 L480,140" fill="none" stroke="#6d28d9" stroke-width="1.8" marker-end="url(#ar-purple)"/>
+          <text x="590" y="259" text-anchor="middle" font-size="12.5" fill="#5b21b6" stroke="#fff" stroke-width="5" paint-order="stroke">再次命中（新 episode）</text>
+
+          <path d="M370,140 L370,330" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <text x="358" y="238" text-anchor="end" font-size="12" fill="#64748b" stroke="#fff" stroke-width="5" paint-order="stroke">无数据 / 评估失败</text>
+          <text x="358" y="256" text-anchor="end" font-size="12" fill="#64748b" stroke="#fff" stroke-width="5" paint-order="stroke">超过容忍窗口</text>
+
+          <path d="M430,330 L430,140" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <text x="442" y="314" font-size="12" fill="#64748b" stroke="#fff" stroke-width="5" paint-order="stroke">数据恢复</text>
+
+          <path d="M715,70 C715,20 790,20 790,70" fill="none" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+
+          <line x1="30" y1="474" x2="62" y2="474" stroke="#94a3b8" stroke-width="1.8"/>
+          <text x="72" y="479" font-size="12" fill="#64748b">条件迁移</text>
+          <line x1="170" y1="474" x2="202" y2="474" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <text x="212" y="479" font-size="12" fill="#64748b">数据 / 评估健康度迁移</text>
+          <text x="30" y="518" font-size="12" fill="#64748b">resolved 不是终态：同一 fingerprint 可再次进入 pending / firing；unknown 表示评估异常，不应等同于 resolved。</text>
+        </svg>
+        <figcaption><b>图 3-1　告警实例状态机。</b>实线为正常条件迁移，虚线为数据 / 评估健康度迁移。抑制与静默不在图中，因为它们只影响通知可见性，不改变实例状态。</figcaption>
+      </figure>
+
+      <h3>3.1 状态定义</h3>
+      <div class="table-wrap">
+        <table>
+          <caption>表 3-1　五个状态的语义与副作用</caption>
+          <thead>
+            <tr><th>状态</th><th>含义</th><th>进入条件</th><th>离开条件</th><th>通知行为</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="badge gray">inactive</span></td><td>没有活跃实例；规则未命中或从未命中</td><td>表达式返回空，或实例被清理</td><td>表达式命中</td><td>无</td></tr>
+            <tr><td><span class="badge pend">pending</span></td><td>条件已成立，但持续时间未达到 <code>for</code></td><td>命中且 <code>for &gt; 0</code></td><td>持续满足 → firing；中途失败 → inactive</td><td><strong>不通知</strong>，仅记录</td></tr>
+            <tr><td><span class="badge fire">firing</span></td><td>条件成立且已满足持续时间要求</td><td><code>now - active_at ≥ for</code></td><td>条件消失且保持期结束 → resolved</td><td>入队触发通知，受去重 / 分组 / 抑制约束</td></tr>
+            <tr><td><span class="badge ok">resolved</span></td><td>条件已消失，实例保留用于关联与审计</td><td>恢复判定成立</td><td>再次命中 → pending / firing</td><td>曾通知过才发恢复通知</td></tr>
+            <tr><td><span class="badge gray">unknown</span></td><td>评估健康度异常：无数据、查询失败、序列消失</td><td>超过 staleness 容忍窗口</td><td>数据恢复后重新求值</td><td>可配置：不通知 / 生成元告警</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>3.2 状态迁移与通知时机</h3>
+      <p>这张表建议直接变成状态机的测试用例。尤其注意第 3 行：<strong>pending 中途失败不产生任何通知</strong>，这是“降噪”的关键，但也是“漏报”的来源，必须显式接受这个权衡。</p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 3-2　迁移表（含副作用与通知）</caption>
+          <thead>
+            <tr><th>#</th><th>从</th><th>触发条件</th><th>到</th><th>副作用</th><th>通知</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td>inactive</td><td>命中，<code>for = 0</code></td><td>firing</td><td>写 <code>firing_at</code>，<code>episode += 1</code></td><td>入队 firing</td></tr>
+            <tr><td>2</td><td>inactive</td><td>命中，<code>for &gt; 0</code></td><td>pending</td><td>写 <code>active_at</code></td><td>无</td></tr>
+            <tr><td>3</td><td>pending</td><td>持续满足且达到 <code>for</code></td><td>firing</td><td>写 <code>firing_at</code></td><td>入队 firing</td></tr>
+            <tr><td>4</td><td>pending</td><td>任一周期不再满足</td><td>inactive</td><td>清空 <code>active_at</code></td><td><strong>无（关键）</strong></td></tr>
+            <tr><td>5</td><td>firing</td><td>持续满足</td><td>firing</td><td>更新 <code>last_value</code>、<code>last_eval_at</code></td><td>无，除非 <code>repeat_interval</code> 到期</td></tr>
+            <tr><td>6</td><td>firing</td><td>不满足，<code>keep_firing_for = 0</code></td><td>resolved</td><td>写 <code>resolved_at</code>、<code>ends_at</code></td><td>曾通知过则入队 resolved</td></tr>
+            <tr><td>7</td><td>firing</td><td>不满足，<code>keep_firing_for &gt; 0</code></td><td>firing</td><td>启动恢复计时，不改变状态</td><td>无</td></tr>
+            <tr><td>8</td><td>resolved</td><td>再次满足</td><td>pending / firing</td><td>新 episode；保留旧行历史</td><td>入队 firing</td></tr>
+            <tr><td>9</td><td>pending / firing</td><td>超过 staleness 无评估</td><td>unknown</td><td>标记 <code>data_gap</code></td><td>可选元告警</td></tr>
+            <tr><td>10</td><td>任意</td><td>规则删除 / 禁用</td><td>resolved</td><td><code>reason = rule_removed</code>，审计</td><td>resolved（若曾通知）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>3.3 <code>for</code> 与 <code>keep_firing_for</code>：两个最容易被误用的参数</h3>
+      <p>Prometheus 的 <code>for</code> 语义是：从第一次命中开始计时，期间<strong>每一次求值都必须继续满足</strong>，否则计时清零；满足时长达到 <code>for</code> 后才进入 firing。未达到之前的活跃状态就是 pending。<sup class="ref"><a href="#ref1">[1]</a></sup></p>
+
+      <div class="code">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span>prometheus/rules/payment.yaml<span class="lang">yaml</span></div>
+<pre><span class="c"># 触发条件与恢复条件成对设计：阈值滞回 + 持续时间 + 保持期</span>
+<span class="k">groups</span>:
+  - <span class="k">name</span>: payment-slo
+    <span class="k">rules</span>:
+      - <span class="k">alert</span>: PaymentSuccessRateLow
+        <span class="k">expr</span>: |
+          sum(rate(payment_requests_total{result=<span class="s">"success"</span>}[5m]))
+          / sum(rate(payment_requests_total[5m])) &lt; 0.995
+        <span class="k">for</span>: 5m                 <span class="c"># 连续 5 分钟低于 99.5% 才 firing</span>
+        <span class="k">keep_firing_for</span>: 5m     <span class="c"># 恢复后再保持 5 分钟，抗抖动 / 抗数据缺口</span>
+        <span class="k">labels</span>:
+          <span class="k">severity</span>: page
+          <span class="k">service</span>: payment-api
+          <span class="k">team</span>: payments
+        <span class="k">annotations</span>:
+          <span class="k">summary</span>: <span class="s">"支付成功率低于 SLO（当前 {{ $value | humanizePercentage }}）"</span>
+          <span class="k">runbook_url</span>: https://runbooks.example.com/payment-success-rate
+          <span class="k">dashboard_url</span>: https://grafana.example.com/d/payment</pre>
+      </div>
+
+      <div class="compare">
+        <div class="good">
+          <h4>合理用法</h4>
+          <ul>
+            <li><code>for ≥ 3 × 评估间隔</code>，避免单点毛刺</li>
+            <li>触发与恢复使用不同阈值（滞回），如 <code>&lt; 99.5%</code> 触发、<code>&gt; 99.7%</code> 恢复</li>
+            <li><code>keep_firing_for</code> 用于桥接短暂数据缺口与抖动</li>
+            <li>对“缓慢劣化”类指标，用更长窗口而不是更长 <code>for</code></li>
+          </ul>
+        </div>
+        <div class="bad">
+          <h4>危险用法</h4>
+          <ul>
+            <li><code>for</code> 远大于故障容忍时间，导致 100% 故障也要等半小时</li>
+            <li>周期性强抖动场景：每次短暂恢复都会重置 <code>for</code>，可能<strong>永远不触发</strong></li>
+            <li>用 <code>keep_firing_for</code> 掩盖长期数据缺失</li>
+            <li>把 <code>for</code> 当作“降噪”的唯一手段，而不治理指标本身</li>
+          </ul>
+        </div>
+      </div>
+
+      <p>Google SRE Workbook 给过一个很尖锐的例子：一个 10 分钟 <code>for</code> 的规则，面对“每 10 分钟出现 5 分钟 100% 错误”的周期性故障，因为每次都在计时未满时恢复，<strong>永远不会告警</strong>，而这类故障在一天内会消耗约 35% 的月度错误预算。<sup class="ref"><a href="#ref4">[4]</a></sup>这不是极端假设，很多批量任务和定时重试就是这个形状。</p>
+
+      <div class="callout warn">
+        <div class="ic">!</div>
+        <div>
+          <span class="co-title">参数建议</span>
+          <p><code>for</code> 取 3～10 倍评估间隔；<code>keep_firing_for</code> 取 <code>for</code> 的 0.5～1 倍；恢复判定再加一个独立观察期（如 5～10 分钟）。如果业务容忍时间小于这个组合，应该改用更高频的评估或 SLO 燃烧率，而不是把 <code>for</code> 调到 0。</p>
+        </div>
+      </div>
+
+      <h3>3.4 恢复判定：对称性与观察期</h3>
+      <p>绝大多数“告警不可信”的投诉，来自恢复路径设计得比触发路径草率。触发时精心设计了 <code>for</code>、多条件、抑制；恢复时却只看“这一秒表达式为空”。建议至少做三件事：</p>
+      <ol>
+        <li><strong>阈值滞回（hysteresis）。</strong>触发阈值和恢复阈值之间留出死区。例如 CPU 触发 <code>&gt; 90%</code>，恢复 <code>&lt; 85%</code>；成功率触发 <code>&lt; 99.5%</code>，恢复 <code>&gt; 99.7%</code>。</li>
+        <li><strong>恢复保持期。</strong>用 <code>keep_firing_for</code> 或独立的 <code>resolve_delay</code>，让“刚恢复又掉下去”的抖动不产生一对无意义的触发 / 恢复通知。</li>
+        <li><strong>影响面复核。</strong>对 P1/P2，不要只看单条指标。支付成功率恢复了，但队列积压仍在增长、错误预算仍在消耗，就不应关闭事件。</li>
+      </ol>
+
+      <p>恢复通知的内容也应该认真设计：<strong>持续了多久、峰值是多少、影响范围、期间是谁处理的、有没有遗留风险</strong>。只发一句“已恢复”，等于把确认工作又推回给值班人。</p>
+
+      <div class="callout note">
+        <div class="ic">i</div>
+        <div>
+          <span class="co-title">一个容易忽略的细节</span>
+          <p>Alertmanager 的 <code>group_wait</code>（默认 30 秒）期间如果告警已经恢复，<strong>不会发送任何通知</strong>，这是刻意设计的降噪行为。<sup class="ref"><a href="#ref2">[2]</a></sup>它与“恢复通知”不矛盾：前者是“还没发过触发通知”，后者是“已经发过触发通知，需要闭环”。实现时必须区分这两种情况。</p>
+        </div>
+      </div>
+
+      <h3>3.5 抖动（flapping）识别与处置</h3>
+      <p>抖动不是“告警太多”的同义词，它是一种可以被检测和量化的模式：在滑动窗口内，同一 fingerprint 的状态迁移次数超过阈值。建议在检测层就标记 <code>flapping = true</code>，而不是让值班人自己发现。</p>
+
+      <figure>
+        <svg viewBox="0 0 900 270" role="img" aria-labelledby="flapTitle flapDesc">
+          <title id="flapTitle">抖动场景下朴素规则与调优规则的对比</title>
+          <desc id="flapDesc">指标在 60 分钟内多次越过阈值。朴素规则产生 6 次触发和 6 次恢复；加入滞回与 keep_firing_for 后只产生 1 次触发和 1 次恢复。</desc>
+
+          <text x="66" y="52" text-anchor="end" font-size="13" font-weight="600" fill="#334155">指标越界</text>
+          <text x="66" y="108" text-anchor="end" font-size="13" font-weight="600" fill="#334155">朴素规则</text>
+          <text x="66" y="164" text-anchor="end" font-size="13" font-weight="600" fill="#334155">调优后</text>
+
+          <g fill="#f97316">
+            <rect x="118" y="36" width="64" height="22" rx="4"/>
+            <rect x="234" y="36" width="51" height="22" rx="4"/>
+            <rect x="336" y="36" width="64" height="22" rx="4"/>
+            <rect x="451" y="36" width="64" height="22" rx="4"/>
+            <rect x="566" y="36" width="64" height="22" rx="4"/>
+            <rect x="682" y="36" width="64" height="22" rx="4"/>
+          </g>
+
+          <g fill="#fb923c">
+            <rect x="118" y="92" width="64" height="22" rx="4"/>
+            <rect x="234" y="92" width="51" height="22" rx="4"/>
+            <rect x="336" y="92" width="64" height="22" rx="4"/>
+            <rect x="451" y="92" width="64" height="22" rx="4"/>
+            <rect x="566" y="92" width="64" height="22" rx="4"/>
+            <rect x="682" y="92" width="64" height="22" rx="4"/>
+          </g>
+
+          <rect x="118" y="148" width="692" height="22" rx="4" fill="#10b981"/>
+          <text x="740" y="84" font-size="12" font-weight="600" fill="#c2410c">12 条通知</text>
+          <text x="820" y="164" font-size="12" font-weight="600" fill="#047857">2 条</text>
+
+          <line x1="80" y1="205" x2="848" y2="205" stroke="#cbd5e1" stroke-width="1"/>
+          <g font-size="11.5" fill="#64748b" text-anchor="middle">
+            <text x="80" y="223">0</text>
+            <text x="208" y="223">10</text>
+            <text x="336" y="223">20</text>
+            <text x="464" y="223">30</text>
+            <text x="592" y="223">40</text>
+            <text x="720" y="223">50</text>
+            <text x="848" y="223">60 min</text>
+          </g>
+          <g stroke="#e2e8f0" stroke-width="1">
+            <line x1="208" y1="205" x2="208" y2="210"/>
+            <line x1="336" y1="205" x2="336" y2="210"/>
+            <line x1="464" y1="205" x2="464" y2="210"/>
+            <line x1="592" y1="205" x2="592" y2="210"/>
+            <line x1="720" y1="205" x2="720" y2="210"/>
+          </g>
+
+          <text x="80" y="252" font-size="11.5" fill="#64748b">橙色：条件越界区间　绿色：合并后的持续 firing　右侧：60 分钟内发出的通知条数（含恢复通知）</text>
+        </svg>
+        <figcaption><b>图 3-2　抖动对比。</b>橙色区间表示指标越界。朴素规则每个区间都触发并恢复一次；加入阈值滞回与 <code>keep_firing_for</code> 后，4 分钟左右的间隙被桥接，只留下一次触发与一次恢复。</figcaption>
+      </figure>
+
+      <p>处置抖动时，优先顺序应该是：<strong>修指标 / 修阈值 → 加滞回 → 加保持期 → 降低通知级别 → 最后才是静默</strong>。直接静默只是把噪音藏起来，下一次换个人值班还会重演。</p>
+
+      <h3>3.6 NoData / Error：评估健康度必须是一等公民</h3>
+      <p>“没有数据”和“数据正常”是两件完全不同的事。Grafana 把这件事显式建模成两个额外状态：<strong>No Data</strong>（查询成功但无数据点）和 <strong>Error</strong>（查询失败或超时），并允许配置为 No Data、Alerting、Normal 或 Keep last state。<sup class="ref"><a href="#ref5">[5]</a></sup></p>
+
+      <div class="grid grid-3">
+        <div class="card">
+          <span class="kicker">策略 A</span>
+          <h4>转为告警</h4>
+          <p>最安全：采集断了本身就是要处理的事故。代价是采集系统抖动会放大成业务告警，需要单独的抑制与升级策略。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">策略 B</span>
+          <h4>保持最后状态</h4>
+          <p>降噪：适合短暂的数据源抖动。风险是长时间失联时告警永远停在 firing 或 resolved，掩盖真实故障。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">策略 C</span>
+          <h4>标记 unknown</h4>
+          <p>推荐默认：状态显式变为 unknown，并生成一条独立的“评估失联”元告警。原告警保留历史，不伪造恢复。</p>
+        </div>
+      </div>
+
+      <div class="callout risk">
+        <div class="ic">!</div>
+        <div>
+          <span class="co-title">一个真实的坑：NoData 告警的标签不一样</span>
+          <p>Grafana 在进入 No Data / Error 时会创建独立的 <code>DatasourceNoData</code> / <code>DatasourceError</code> 告警实例，它们的标签集与原始告警不同，因此<strong>已有的静默、静默时段和通知策略可能不匹配</strong>。<sup class="ref"><a href="#ref5">[5]</a></sup>自研系统如果采用类似设计，必须让元告警继承原始告警的 <code>service</code>、<code>team</code> 等路由标签，否则它会落到默认路由上。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="s4">
+      <div class="sec-head"><span class="sec-num">04</span><h2>通知生命周期：从事实到打扰</h2></div>
+      <p class="sec-lede">通知层做的不是“把告警发出去”，而是决定“此刻是否值得打扰一个人”。它需要去重、分组、抑制、静默、路由、限流、重试和升级，任何一环缺失，都会把成本转嫁给值班人。</p>
+
+      <h3>4.1 去重：fingerprint 是整层的基石</h3>
+      <p>一条告警的身份不是它的标题，也不是数据库自增 ID，而是<strong>标签集合的规范化哈希</strong>。Prometheus / Alertmanager 用 fingerprint 标识告警实例，并在 webhook 负载中回传。<sup class="ref"><a href="#ref2">[2]</a></sup>自研系统应沿用同样的思路，并明确规范化规则，否则“同一条告警”在不同组件里会得到不同指纹。</p>
+
+      <div class="code">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span>internal/alert/fingerprint.go<span class="lang">go</span></div>
+<pre><span class="c">// 规范化：排序 key、剔除空值、统一分隔符，避免 map 遍历顺序造成漂移。</span>
+<span class="k">func</span> <span class="f">Fingerprint</span>(labels <span class="k">map</span>[<span class="k">string</span>]<span class="k">string</span>) <span class="k">string</span> {
+    keys := <span class="f">make</span>([]<span class="k">string</span>, <span class="n">0</span>, <span class="f">len</span>(labels))
+    <span class="k">for</span> k, v := <span class="k">range</span> labels {
+        <span class="k">if</span> v == <span class="s">""</span> { <span class="k">continue</span> }   <span class="c">// 缺失与空值等价</span>
+        keys = <span class="f">append</span>(keys, k)
+    }
+    sort.<span class="f">Strings</span>(keys)
+
+    h := sha256.<span class="f">New</span>()
+    <span class="k">for</span> _, k := <span class="k">range</span> keys {
+        h.<span class="f">Write</span>([]<span class="k">byte</span>(k))
+        h.<span class="f">Write</span>([]<span class="k">byte</span>{<span class="n">0xff</span>})       <span class="c">// 分隔符，防止 "ab"+"c" 与 "a"+"bc" 碰撞</span>
+        h.<span class="f">Write</span>([]<span class="k">byte</span>(labels[k]))
+        h.<span class="f">Write</span>([]<span class="k">byte</span>{<span class="n">0xff</span>})
+    }
+    <span class="k">return</span> hex.<span class="f">EncodeToString</span>(h.<span class="f">Sum</span>(<span class="k">nil</span>))[:<span class="n">16</span>]
+}</pre>
+      </div>
+
+      <p>标签设计决定了 fingerprint 是否稳定。下面这些值一旦进入标签，就会制造“永远无法恢复”的告警：</p>
+      <div class="compare">
+        <div class="bad">
+          <h4>不要放进标签</h4>
+          <ul>
+            <li><code>request_id</code>、<code>trace_id</code>、<code>order_id</code></li>
+            <li>带随机后缀的 Pod 名、容器 ID</li>
+            <li>原始错误消息、SQL、URL query</li>
+            <li>当前值、时间戳、通知次数</li>
+            <li>用户 ID、手机号等敏感信息</li>
+          </ul>
+        </div>
+        <div class="good">
+          <h4>适合放进标签</h4>
+          <ul>
+            <li><code>service</code>、<code>team</code>、<code>env</code></li>
+            <li><code>region</code>、<code>cluster</code>、<code>instance</code>（稳定时）</li>
+            <li><code>severity</code>、<code>slo</code>、<code>alertname</code></li>
+            <li><code>runbook_url</code>（作为 annotation 更合适）</li>
+            <li>业务维度：<code>tenant</code>、<code>plan</code>（低基数）</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout note">
+        <div class="ic">i</div>
+        <div>
+          <span class="co-title">episode：一次 firing 不等于一个告警</span>
+          <p>同一 fingerprint 恢复后再次触发，应视为新的 <code>episode</code>（<code>episode += 1</code>），而不是复用旧实例。这样既能保留历史，又能让“重开窗口”“复发率”“抖动率”有准确的时间边界。</p>
+        </div>
+      </div>
+
+      <h3>4.2 分组：把 500 条告警变成 1 条可读的通知</h3>
+      <p>分组的本质是“在时间窗口内，把共享同一组标签的告警合并成一条通知”。Alertmanager 的三个参数给出了很好的默认值，也揭示了核心权衡：<sup class="ref"><a href="#ref2">[2]</a></sup></p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 4-1　分组参数与权衡（默认值来自 Alertmanager）</caption>
+          <thead>
+            <tr><th>参数</th><th>默认</th><th>作用</th><th>调大</th><th>调小</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>group_by</code></td><td><code>[alertname, cluster]</code>（示例）</td><td>按哪些标签聚合</td><td>通知更少、信息更粗</td><td>通知更多、定位更细</td></tr>
+            <tr><td><code>group_wait</code></td><td>30s</td><td>新组的首条通知等待时间</td><td>更完整，但首响变慢</td><td>更快，但容易碎片化</td></tr>
+            <tr><td><code>group_interval</code></td><td>5m</td><td>同组后续更新的最小间隔</td><td>更安静，但状态更新滞后</td><td>更及时，但打扰更多</td></tr>
+            <tr><td><code>repeat_interval</code></td><td>4h</td><td>无变化时的重复提醒周期</td><td>更适合长故障，减少重复</td><td>更容易被想起，但噪音大</td></tr>
+            <tr><td><code>resolve_timeout</code></td><td>5m</td><td>无 <code>endsAt</code> 时判定恢复的等待</td><td>更保守，防误恢复</td><td>恢复更快，但可能反复</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>三个实践要点：</p>
+      <ul>
+        <li><strong>分组键必须包含路由。</strong>同一个标签组合可能命中不同 receiver（例如 P1 走电话、P3 走工单），如果 group key 不含 route，两个渠道会共用同一份节流状态，出现“电话没打、工单也没建”。</li>
+        <li><strong>给通知设置条数上限。</strong>一个组里 800 条告警对人不产生任何额外信息。建议单条通知最多展示 10～20 条，其余折叠为“还有 137 条同类告警”，并附查询链接。</li>
+        <li><strong><code>group_interval</code> 同时是发送超时。</strong>Alertmanager 文档明确：它也是每次发送的通知管道上下文超时；如果渠道很慢而 <code>group_interval</code> 很小，通知会被取消。<sup class="ref"><a href="#ref2">[2]</a></sup></li>
+      </ul>
+
+      <div class="code">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span>alertmanager/route.yaml<span class="lang">yaml</span></div>
+<pre><span class="k">route</span>:
+  <span class="k">receiver</span>: default-oncall
+  <span class="k">group_by</span>: [service, env, alertname]
+  <span class="k">group_wait</span>: 30s
+  <span class="k">group_interval</span>: 5m
+  <span class="k">repeat_interval</span>: 4h
+  <span class="k">routes</span>:
+    - <span class="k">matchers</span>: [severity=<span class="s">"page"</span>]
+      <span class="k">receiver</span>: p1-phone
+      <span class="k">group_wait</span>: 10s          <span class="c"># P1 少等，尽快叫人</span>
+      <span class="k">group_by</span>: [service, env]
+      <span class="k">continue</span>: <span class="k">true</span>          <span class="c"># 同时继续匹配工单路由</span>
+    - <span class="k">matchers</span>: [severity=<span class="s">"ticket"</span>]
+      <span class="k">receiver</span>: ticket-queue
+      <span class="k">group_wait</span>: 5m
+      <span class="k">repeat_interval</span>: 24h
+    - <span class="k">matchers</span>: [team=<span class="s">"payments"</span>]
+      <span class="k">receiver</span>: payments-oncall</pre>
+      </div>
+
+      <h3>4.3 抑制：用依赖关系代替人肉判断</h3>
+      <p>抑制（inhibition）的语义是：<strong>当一组 source 告警存在时，静音一组 target 告警</strong>，两者在 <code>equal</code> 指定的标签上必须相等。它适合表达“上游故障导致的下游症状”，例如机房断电时，不必再收 300 台主机的实例告警。<sup class="ref"><a href="#ref2">[2]</a></sup></p>
+
+      <div class="code">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span>alertmanager/inhibit.yaml<span class="lang">yaml</span></div>
+<pre><span class="k">inhibit_rules</span>:
+  <span class="c"># 机房级故障 → 抑制其上的主机 / 实例级告警</span>
+  - <span class="k">source_matchers</span>: [alertname=<span class="s">"DatacenterDown"</span>, severity=<span class="s">"critical"</span>]
+    <span class="k">target_matchers</span>: [severity=~<span class="s">"warning|info"</span>]
+    <span class="k">equal</span>: [region, datacenter]
+
+  <span class="c"># 数据库主故障 → 抑制依赖它的服务告警</span>
+  - <span class="k">source_matchers</span>: [alertname=<span class="s">"DatabasePrimaryDown"</span>]
+    <span class="k">target_matchers</span>: [alertname=~<span class="s">".*Latency.*|.*ErrorRate.*"</span>]
+    <span class="k">equal</span>: [cluster, database]</pre>
+      </div>
+
+      <p>抑制规则最容易出问题的地方不是语法，而是<strong>图结构</strong>：</p>
+      <ul>
+        <li><strong>抑制环。</strong>A 抑制 B、B 抑制 A，最终两条都不通知。上线前应对规则做有向图建模，检测强连通分量（SCC），并限制抑制链深度（例如最多 3 层）。</li>
+        <li><strong>自抑制。</strong>Alertmanager 会阻止“同时匹配 source 和 target 的告警”被同类告警抑制，包括自己；但仍建议把 source 和 target 的匹配器设计成互斥，便于推理。<sup class="ref"><a href="#ref2">[2]</a></sup></li>
+        <li><strong>依赖来源。</strong>抑制关系应该由 CMDB、服务依赖图或 Kubernetes 拓扑自动生成，而不是靠人写死。人写的规则永远追不上架构变更。</li>
+        <li><strong>解除后的恢复。</strong>抑制只影响通知，不改变告警状态。抑制解除时，仍在 firing 的告警必须重新可见（必要时补一条摘要），否则会出现“故障还在，但再也没人收到通知”。</li>
+      </ul>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 4-2　四种“让人收不到通知”的机制</caption>
+          <thead>
+            <tr><th>机制</th><th>依据</th><th>持续时间</th><th>典型场景</th><th>是否改变告警状态</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>抑制</strong></td><td>另一组告警存在</td><td>随 source 存在而持续</td><td>机房故障抑制实例告警</td><td>否</td></tr>
+            <tr><td><strong>静默</strong></td><td>标签匹配器</td><td>固定起止时间</td><td>计划维护、已知问题</td><td>否</td></tr>
+            <tr><td><strong>静默时段</strong></td><td>时间区间 + 路由</td><td>周期性</td><td>夜间只对 P3 静音</td><td>否</td></tr>
+            <tr><td><strong>限流</strong></td><td>租户 / 服务 / 渠道配额</td><td>窗口内</td><td>告警风暴保护</td><td>否</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>4.4 静默：必须有期限、有主人、有审计</h3>
+      <p>静默是“我知道现在会响，先别响”。它和抑制的区别是：静默基于时间与匹配器，不需要另一个告警存在。一个可运营的静默至少要包含：</p>
+      <div class="pill-row">
+        <span class="pill">matchers</span><span class="pill">starts_at / ends_at</span><span class="pill">created_by</span><span class="pill">reason</span><span class="pill">ticket_url</span><span class="pill">scope</span>
+      </div>
+      <ul>
+        <li><strong>强制到期时间</strong>，并设上限（如 7 天）。永久静默等于删除监控，只是没人敢承认。</li>
+        <li><strong>到期前提醒创建人</strong>，到期后自动失效；若是计划维护，应关联变更单。</li>
+        <li><strong>维护窗口结束生成摘要</strong>：窗口内抑制了多少条、其中多少条在窗口结束后仍在 firing。否则窗口会安静地掩盖一次真实故障。</li>
+        <li><strong>审计不可删</strong>：谁、何时、为什么静默，必须进入事件时间线。复盘时“当时为什么没收到告警”应该有确定答案。</li>
+      </ul>
+
+      <h3>4.5 路由：一棵可测试的匹配树</h3>
+      <p>路由的本质是“标签匹配 → receiver”。设计要点不是支持多少种匹配语法，而是<strong>可预测</strong>：给定一组标签，任何人能手工推导出它会去哪。建议：</p>
+      <ul>
+        <li>树形结构，<strong>首个匹配生效</strong>，需要继续匹配时显式设置 <code>continue</code>；根节点必须有兜底 receiver。</li>
+        <li>优先级用结构表达，而不是用规则顺序的隐式约定；禁止“靠写在前面”来抢优先级。</li>
+        <li>提供 <strong>路由预演 API</strong>：输入 labels，返回命中的路由链、receiver、分组键与生效参数。这比文档可靠。</li>
+        <li>路由变更走代码评审与灰度；生产环境的默认路由变更应该触发一次人工确认。</li>
+      </ul>
+
+      <h3>4.6 发送：至少一次，但看起来像恰好一次</h3>
+      <p>通知投递的工程目标不是“绝不重复”，而是<strong>重复可接受、丢失不可接受、重复可识别</strong>。这要求幂等键、重试策略、失败队列和可见的投递状态。</p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 4-3　投递失败模式与处置</caption>
+          <thead>
+            <tr><th>失败模式</th><th>表现</th><th>处置</th><th>是否重试</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>渠道 5xx</td><td>服务端错误</td><td>指数退避 + 抖动，最多 N 次</td><td>是</td></tr>
+            <tr><td>请求超时但已送达</td><td>客户端超时，渠道实际成功</td><td>用幂等键让渠道侧去重；查询回执</td><td>是（幂等）</td></tr>
+            <tr><td>429 限流</td><td>渠道返回配额错误</td><td>退避 + 降级到备用渠道</td><td>是</td></tr>
+            <tr><td>凭证失效</td><td>401/403</td><td>停止重试，告警给平台 owner</td><td>否</td></tr>
+            <tr><td>模板渲染失败</td><td>缺少字段 / 类型错误</td><td>发送兜底纯文本，记录原始错误</td><td>否</td></tr>
+            <tr><td>接收人不存在</td><td>用户离职 / 群解散</td><td>回退到团队频道 + 元告警</td><td>否</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>幂等键建议由 <code>(group_key, revision, channel, recipient)</code> 组成：<code>revision</code> 在告警组内容发生实质变化时递增（新告警加入、旧告警恢复），同一 revision 的重试共用同一个键。这样既能安全重试，又不会把“新状态”误判为重复。</p>
+
+      <h3>4.7 升级与值班：确保总有人接住</h3>
+      <p>升级策略（escalation policy）是通知层的最后一道保险。它的基本结构是“层级 + 等待时间 + 目标”：第 1 级主值班，5 分钟未认领升级到第 2 级，再 10 分钟升级到团队负责人。认领后停止升级；认领超时则回到 triggered 并继续升级。</p>
+
+      <div class="callout risk">
+        <div class="ic">!</div>
+        <div>
+          <span class="co-title">无人在班 = 事件根本不会创建</span>
+          <p>PagerDuty 明确要求：只有升级策略上存在当前 on-call 用户时，事件才会被创建；如果排班存在覆盖缺口，事件不会触发。<sup class="ref"><a href="#ref6">[6]</a></sup>自研系统如果照搬“有值班才通知”，必须额外提供兜底：排班缺口检测、团队频道广播、以及一条“值班覆盖率为空”的元告警。</p>
+        </div>
+      </div>
+
+      <p>一条合格的 P1 通知应该让人在 10 秒内回答：<strong>什么坏了、影响谁、从什么时候开始、现在多严重、我该先做什么、去哪里看</strong>。下面是一个内容模板的示意：</p>
+
+      <div class="alert-card">
+        <div class="ac-top">
+          <span class="badge fire">P1 · firing</span>
+          <span class="time">已持续 12m</span>
+        </div>
+        <h4>checkout-api 支付成功率低于 SLO</h4>
+        <div class="ac-labels">service=checkout-api · env=prod · region=cn-east-1 · slo=availability</div>
+        <div class="ac-metrics">
+          <div><b>92.4%</b><span>当前成功率</span></div>
+          <div><b>99.5%</b><span>触发阈值</span></div>
+          <div><b>2.1%</b><span>已消耗预算 / 1h</span></div>
+        </div>
+        <div class="ac-actions"><span>打开大盘</span><span>Runbook</span><span>认领</span><span>静默 1h</span></div>
+      </div>
+
+      <ul>
+        <li><strong>标题写影响，不写指标名。</strong>“支付成功率低于 SLO”优于“PaymentSuccessRateLow”。</li>
+        <li><strong>三个数字足够。</strong>当前值、阈值、持续时间；更多细节放到链接里。</li>
+        <li><strong>动作必须可点。</strong>大盘、Runbook、认领、静默，缺一不可；静默要带默认时长与原因输入。</li>
+        <li><strong>同一事件用线程更新。</strong>后续进展回复在原消息线程里，而不是每条都新发一条；否则一次故障会刷屏整个频道。</li>
+      </ul>
+    </section>
+
+    <section id="s5">
+      <div class="sec-head"><span class="sec-num">05</span><h2>事件生命周期：让人和系统都闭环</h2></div>
+      <p class="sec-lede">检测层告诉你“有事发生”，通知层确保“有人知道”，事件层负责“有人处理、有记录、有结论”。事件不是告警的附属品，它有自己的状态、升级规则和复盘要求。</p>
+
+      <div class="card">
+        <p style="margin-bottom:6px"><span class="badge fire">triggered</span> → <span class="badge pend">acknowledged</span> → <span class="badge ok">resolved</span> → <span class="badge gray">closed</span></p>
+        <p class="small" style="margin:0">旁路：<span class="badge inc">escalated</span> 升级、<span class="badge gray">reopened</span> 重开、<span class="badge gray">merged</span> 合并。ack 只停止升级，不改变故障事实。</p>
+      </div>
+
+      <h3>5.1 状态定义</h3>
+      <div class="table-wrap">
+        <table>
+          <caption>表 5-1　事件状态与语义</caption>
+          <thead>
+            <tr><th>状态</th><th>含义</th><th>进入方式</th><th>退出方式</th><th>通知行为</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="badge fire">triggered</span></td><td>已创建，尚无人认领，升级计时进行中</td><td>告警首次成功通知 / 人工声明</td><td>认领、升级、恢复</td><td>按升级策略持续触达</td></tr>
+            <tr><td><span class="badge pend">acknowledged</span></td><td>已认领，有人负责，升级暂停</td><td>值班人 ack</td><td>恢复、取消认领、认领超时</td><td>不再重复打扰（除关键更新）</td></tr>
+            <tr><td><span class="badge inc">escalated</span></td><td>升级到下一层；通常是一个瞬时动作而非长期状态</td><td>超时未认领</td><td>新一层认领 / 继续升级</td><td>通知新一层负责人</td></tr>
+            <tr><td><span class="badge ok">resolved</span></td><td>技术指标已恢复，影响待确认</td><td>关联告警全部恢复 + 观察期；或人工</td><td>关闭、重开</td><td>发恢复通知</td></tr>
+            <tr><td><span class="badge gray">closed</span></td><td>确认闭环：根因、影响、行动项已记录</td><td>人工确认 / 复盘完成</td><td>一般不可逆（可重开为新事件）</td><td>无</td></tr>
+            <tr><td><span class="badge gray">reopened</span></td><td>恢复后短时间内再次触发，复用原事件</td><td>重开窗口内同 dedup_key 再次触发</td><td>重新进入处理流程</td><td>通知原负责人 + 频道</td></tr>
+            <tr><td><span class="badge gray">merged</span></td><td>被判定为重复事件，合并到主事件</td><td>人工或规则合并</td><td>不可逆，保留指向</td><td>在主事件中说明</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>5.2 ack 的语义：停止升级，不等于修复</h3>
+      <p>ack 是“我看到了，我来处理”，它解决的是<strong>注意力归属</strong>问题，不是技术问题。因此：</p>
+      <ul>
+        <li><strong>ack 必须绑定人。</strong>记录 <code>acked_by</code>、<code>acked_at</code>、<code>ack_channel</code>；广播给同组值班，避免两个人同时扑上去。</li>
+        <li><strong>ack 有超时。</strong>例如 15 分钟没有任何操作，自动回到 triggered 并继续升级；否则一个误点就能让事件静默到天亮。</li>
+        <li><strong>ack 不抑制恢复通知。</strong>恢复仍然要通知，并且要告诉原认领人“已经恢复了，你可以停止处理”。</li>
+        <li><strong>并发认领用乐观锁。</strong><code>UPDATE ... WHERE status='triggered'</code>，失败者收到“已被 XXX 认领”，而不是静默失败。</li>
+      </ul>
+
+      <h3>5.3 自动恢复与人工关闭之间，隔着一个观察期</h3>
+      <p>“所有关联告警都 resolved 了”是必要条件，不是充分条件。缓存可能还在返旧数据，队列可能还在积压，客户端重试可能还在放大流量。建议的自动恢复条件是：</p>
+      <div class="formula">
+        <span class="lbl">AUTO RESOLVE CONDITION</span>
+        all(linked_alerts.state == resolved)<br>
+        AND now - last_alert_resolved_at &gt;= hold_down（建议 5～15 分钟）<br>
+        AND 关键 SLI 在观察窗口内未再消耗错误预算<br>
+        AND 没有关联的进行中变更 / 维护窗口
+      </div>
+
+      <p>不满足时，事件保持 acknowledged，并提示“指标已恢复，等待观察期确认”。这比“指标一好就自动关闭、十分钟后又重开”体验好得多。</p>
+
+      <h3>5.4 重开窗口与事件合并</h3>
+      <p>抖动不仅制造通知噪音，也制造事件碎片。两个机制可以显著改善：</p>
+      <ul>
+        <li><strong>重开窗口（reopen window）。</strong>事件 resolved 后 N 分钟内（如 30 分钟），同 <code>dedup_key</code> 再次触发时，不新建事件，而是把原事件置为 reopened，保留原时间线与负责人。N 分钟后再触发则新建，并链接到前一个事件。</li>
+        <li><strong>事件合并（merge）。</strong>同一服务、同一时间段、疑似同根因的多个事件，允许合并为一个主事件。被合并事件保留只读时间线与 <code>merged_into</code> 指针，避免“关了一个，另一个还在响”。</li>
+      </ul>
+
+      <div class="callout note">
+        <div class="ic">i</div>
+        <div>
+          <span class="co-title">dedup_key 怎么设计</span>
+          <p>不要直接用 fingerprint：一个事件往往聚合多条告警。建议用 <code>hash(service, env, incident_type, time_bucket)</code>，其中 <code>time_bucket</code> 按故障类型取 30 分钟到 6 小时。这样既能合并同一故障的多个症状，又不会把一周内的两次独立故障粘在一起。</p>
+        </div>
+      </div>
+
+      <h3>5.5 协作：角色、时间线与战情室</h3>
+      <p>Google SRE 的事件管理实践强调明确的角色分工：<strong>事件指挥官（IC）</strong>负责决策与协调，<strong>操作负责人（OL）</strong>负责动手，<strong>沟通负责人（CL）</strong>负责对内对外同步。<sup class="ref"><a href="#ref8">[8]</a></sup>小团队可以一人兼任，但角色必须显式，否则会出现“所有人都在查日志，没人对外同步”。</p>
+
+      <p>事件时间线应该<strong>自动记录</strong>，而不是靠人补：状态变更、通知发送、ack、升级、评论、关联告警、加入/退出、变更单、恢复、关闭。时间线是复盘的主要输入，也是回答“当时到底发生了什么”的唯一可靠来源。</p>
+
+      <h3>5.6 复盘：把一次故障变成系统能力</h3>
+      <p>复盘（postmortem）的目标不是追责，而是找到系统性改进点。一个可执行的最小闭环：</p>
+      <ol>
+        <li><strong>触发条件</strong>：P1/P2、MTTR 超阈值、重复故障、有客户影响、或值班人主动要求。</li>
+        <li><strong>自动生成初稿</strong>：时间线、影响面、相关告警、参与人、变更记录，全部从系统拉取。</li>
+        <li><strong>无责讨论</strong>：聚焦“系统为什么允许这件事发生”，而不是“谁点错了按钮”。</li>
+        <li><strong>行动项</strong>：每条必须有 owner、截止日期、优先级，并进入 issue tracker；下一轮复盘首先检查上轮行动项完成率。</li>
+        <li><strong>回写检测</strong>：新增/调整告警规则、抑制规则、Runbook；否则同样的故障下次仍然靠人肉发现。</li>
+      </ol>
+    </section>
+
+    <section id="s6">
+      <div class="sec-head"><span class="sec-num">06</span><h2>数据模型：把时间线变成可查询的事实</h2></div>
+      <p class="sec-lede">状态机的每个迁移都应该是<strong>一次追加写</strong>，而不是对一行数据的原地覆盖。当前状态用于查询，事件表用于解释、审计和重放；两者必须同时存在。</p>
+
+      <h3>6.1 实体关系</h3>
+      <div class="table-wrap">
+        <table>
+          <caption>表 6-1　核心实体</caption>
+          <thead>
+            <tr><th>实体</th><th>职责</th><th>关键字段</th><th>增长量级</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>alert_rule</code></td><td>规则定义与版本</td><td>expr、for、labels、severity、owner、version</td><td>万级</td></tr>
+            <tr><td><code>alert_instance</code></td><td>某 fingerprint 的一次 episode</td><td>fingerprint、state、active_at、firing_at、resolved_at、episode</td><td>十万～百万</td></tr>
+            <tr><td><code>alert_event</code></td><td>不可变状态变更事实</td><td>alert_id、type、from/to、occurred_at、actor、payload</td><td>千万～亿</td></tr>
+            <tr><td><code>silence</code></td><td>有期限的匹配器</td><td>matchers、starts_at、ends_at、created_by、reason</td><td>万级</td></tr>
+            <tr><td><code>notification</code></td><td>一次投递尝试</td><td>group_key、revision、channel、idempotency_key、status</td><td>百万～千万</td></tr>
+            <tr><td><code>incident</code></td><td>人的协作单元</td><td>dedup_key、status、severity、assignee、acked_at、resolved_at</td><td>万～十万</td></tr>
+            <tr><td><code>incident_alert</code></td><td>事件与告警的多对多关联</td><td>incident_id、alert_id、linked_at、active</td><td>百万级</td></tr>
+            <tr><td><code>postmortem</code></td><td>复盘与行动项</td><td>incident_id、root_cause、action_items、published_at</td><td>千级</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>6.2 核心 DDL（PostgreSQL）</h3>
+      <p>下面的 schema 刻意保留了“部分唯一索引 + 事件表 + outbox”三个设计。它们分别解决<strong>同一实例只能有一个活跃 episode</strong>、<strong>状态可解释</strong>、<strong>状态与消息不同步</strong>三个问题。</p>
+
+      <div class="code">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span>schema/alert.sql<span class="lang">sql</span></div>
+<pre><span class="k">CREATE TABLE</span> alert_instance (
+    id            <span class="k">bigint</span> <span class="k">GENERATED ALWAYS AS IDENTITY</span> <span class="k">PRIMARY KEY</span>,
+    tenant_id     <span class="k">text</span>        <span class="k">NOT NULL</span>,
+    rule_id       <span class="k">bigint</span>      <span class="k">NOT NULL</span> <span class="k">REFERENCES</span> alert_rule(id),
+    fingerprint   <span class="k">bytea</span>       <span class="k">NOT NULL</span>,          <span class="c">-- sha256(canonical labels)</span>
+    labels        <span class="k">jsonb</span>       <span class="k">NOT NULL</span>,
+    state         <span class="k">text</span>        <span class="k">NOT NULL</span>
+                  <span class="k">CHECK</span> (state <span class="k">IN</span> (<span class="s">'pending'</span>,<span class="s">'firing'</span>,<span class="s">'resolved'</span>,<span class="s">'unknown'</span>)),
+    episode       <span class="k">int</span>         <span class="k">NOT NULL DEFAULT</span> <span class="n">1</span>,
+    active_at     <span class="k">timestamptz</span>,
+    firing_at     <span class="k">timestamptz</span>,
+    resolved_at   <span class="k">timestamptz</span>,
+    last_eval_at  <span class="k">timestamptz</span> <span class="k">NOT NULL</span>,
+    last_value    <span class="k">double precision</span>,
+    fire_count    <span class="k">int</span>         <span class="k">NOT NULL DEFAULT</span> <span class="n">0</span>,
+    version       <span class="k">bigint</span>      <span class="k">NOT NULL DEFAULT</span> <span class="n">0</span>,   <span class="c">-- CAS 并发控制</span>
+    updated_at    <span class="k">timestamptz</span> <span class="k">NOT NULL DEFAULT</span> now()
+);
+
+<span class="c">-- 同一规则 + 同一指纹，最多只有一个活跃 episode；历史 episode 保留为 resolved</span>
+<span class="k">CREATE UNIQUE INDEX</span> ux_alert_active
+    <span class="k">ON</span> alert_instance (tenant_id, rule_id, fingerprint)
+    <span class="k">WHERE</span> state <span class="k">IN</span> (<span class="s">'pending'</span>,<span class="s">'firing'</span>,<span class="s">'unknown'</span>);
+
+<span class="k">CREATE INDEX</span> ix_alert_labels <span class="k">ON</span> alert_instance <span class="k">USING</span> gin (labels jsonb_path_ops);
+<span class="k">CREATE INDEX</span> ix_alert_firing <span class="k">ON</span> alert_instance (tenant_id, firing_at <span class="k">DESC</span>)
+    <span class="k">WHERE</span> state = <span class="s">'firing'</span>;</pre>
+      </div>
+
+      <div class="code">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span>schema/timeline.sql<span class="lang">sql</span></div>
+<pre><span class="c">-- 追加写的事件表：状态、通知、ack、静默、合并都记在这里</span>
+<span class="k">CREATE TABLE</span> alert_event (
+    id           <span class="k">bigint</span> <span class="k">GENERATED ALWAYS AS IDENTITY</span>,
+    tenant_id    <span class="k">text</span>        <span class="k">NOT NULL</span>,
+    alert_id     <span class="k">bigint</span>      <span class="k">NOT NULL</span>,
+    occurred_at  <span class="k">timestamptz</span> <span class="k">NOT NULL</span>,             <span class="c">-- 事件时间</span>
+    recorded_at  <span class="k">timestamptz</span> <span class="k">NOT NULL DEFAULT</span> now(), <span class="c">-- 入库时间</span>
+    type         <span class="k">text</span>        <span class="k">NOT NULL</span>,             <span class="c">-- state_changed / notified / acked ...</span>
+    from_state   <span class="k">text</span>,
+    to_state     <span class="k">text</span>,
+    actor        <span class="k">text</span>        <span class="k">NOT NULL</span>,             <span class="c">-- user:123 / system / rule:45</span>
+    payload      <span class="k">jsonb</span>       <span class="k">NOT NULL DEFAULT</span> <span class="s">'{}'</span>,
+    <span class="k">PRIMARY KEY</span> (id, occurred_at)
+) <span class="k">PARTITION BY RANGE</span> (occurred_at);
+
+<span class="k">CREATE TABLE</span> incident (
+    id                <span class="k">uuid</span> <span class="k">PRIMARY KEY</span>,
+    tenant_id         <span class="k">text</span> <span class="k">NOT NULL</span>,
+    dedup_key         <span class="k">text</span> <span class="k">NOT NULL</span>,
+    title             <span class="k">text</span> <span class="k">NOT NULL</span>,
+    severity          <span class="k">text</span> <span class="k">NOT NULL</span>,
+    status            <span class="k">text</span> <span class="k">NOT NULL</span>
+                      <span class="k">CHECK</span> (status <span class="k">IN</span> (<span class="s">'triggered'</span>,<span class="s">'acknowledged'</span>,<span class="s">'resolved'</span>,<span class="s">'closed'</span>,<span class="s">'merged'</span>)),
+    service_id        <span class="k">text</span>,
+    escalation_level  <span class="k">int</span>  <span class="k">NOT NULL DEFAULT</span> <span class="n">1</span>,
+    assignee          <span class="k">text</span>,
+    acked_at          <span class="k">timestamptz</span>,
+    ack_deadline      <span class="k">timestamptz</span>,
+    resolved_at       <span class="k">timestamptz</span>,
+    closed_at         <span class="k">timestamptz</span>,
+    reopen_deadline   <span class="k">timestamptz</span>,
+    merged_into       <span class="k">uuid</span> <span class="k">REFERENCES</span> incident(id),
+    created_at        <span class="k">timestamptz</span> <span class="k">NOT NULL DEFAULT</span> now()
+);
+
+<span class="c">-- 同一 dedup_key 同时只能有一个打开的事件</span>
+<span class="k">CREATE UNIQUE INDEX</span> ux_incident_open
+    <span class="k">ON</span> incident (tenant_id, dedup_key)
+    <span class="k">WHERE</span> status <span class="k">IN</span> (<span class="s">'triggered'</span>,<span class="s">'acknowledged'</span>);</pre>
+      </div>
+
+      <h3>6.3 事件溯源与 Outbox</h3>
+      <p>“当前状态”和“状态变更事实”是两份数据。前者让查询快，后者让系统可解释。推荐的做法是：</p>
+      <ul>
+        <li>状态变更与 <code>alert_event</code> 在<strong>同一个数据库事务</strong>中完成；当前表可以被视为事件表的物化视图。</li>
+        <li>需要对外发消息时，不直接调用 Kafka，而是写 <code>outbox</code> 表；由 CDC / 轮询发布器投递。这样“状态改了但消息没发”与“消息发了但状态没改”都不会发生。</li>
+        <li>事件表按 <code>occurred_at</code> 分区（按天或按月），保留期结束后归档到对象存储；审计需求通常要求 1 年以上。</li>
+      </ul>
+
+      <div class="code">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span>schema/outbox.sql<span class="lang">sql</span></div>
+<pre><span class="k">CREATE TABLE</span> outbox (
+    id           <span class="k">bigint</span> <span class="k">GENERATED ALWAYS AS IDENTITY</span> <span class="k">PRIMARY KEY</span>,
+    aggregate_id <span class="k">text</span>        <span class="k">NOT NULL</span>,
+    topic        <span class="k">text</span>        <span class="k">NOT NULL</span>,
+    payload      <span class="k">jsonb</span>       <span class="k">NOT NULL</span>,
+    created_at   <span class="k">timestamptz</span> <span class="k">NOT NULL DEFAULT</span> now(),
+    published_at <span class="k">timestamptz</span>
+);
+<span class="k">CREATE INDEX</span> ix_outbox_unpublished <span class="k">ON</span> outbox (id) <span class="k">WHERE</span> published_at <span class="k">IS NULL</span>;</pre>
+      </div>
+
+      <h3>6.4 保留、分区与容量</h3>
+      <div class="table-wrap">
+        <table>
+          <caption>表 6-2　建议保留策略（按合规要求调整）</caption>
+          <thead>
+            <tr><th>数据</th><th>热存储</th><th>归档</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>活跃告警实例</td><td>全量</td><td>—</td><td>通常 &lt; 10 万行，可全内存</td></tr>
+            <tr><td>已恢复实例</td><td>90 天</td><td>1 年</td><td>用于复发率、抖动分析</td></tr>
+            <tr><td>告警事件</td><td>180 天</td><td>1～3 年</td><td>审计与复盘的核心证据</td></tr>
+            <tr><td>通知记录</td><td>90 天</td><td>1 年</td><td>含渠道回执与幂等键</td></tr>
+            <tr><td>静默 / 抑制变更</td><td>1 年</td><td>3 年</td><td>合规与“为什么没通知”</td></tr>
+            <tr><td>事件与复盘</td><td>永久</td><td>—</td><td>组织记忆，不建议删除</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>容量估算不需要很精确，但必须有公式：</p>
+      <div class="formula">
+        <span class="lbl">CAPACITY</span>
+        评估 QPS      = 规则数 ÷ 平均评估周期<br>
+        状态写入 QPS  = 评估 QPS × 命中率（通常 1%～5%）<br>
+        通知 QPS      = 活跃告警组数 ÷ group_interval × 渠道数<br>
+        事件存储      = 日事件数 × 行宽 × 保留天数 × 副本数
+      </div>
+
+      <h3>6.5 标签规范与多租户</h3>
+      <p>标签既是查询维度，也是路由依据，还是 fingerprint 的输入。建议在<strong>入库时</strong>做强制校验，而不是靠文档约定：</p>
+      <ul>
+        <li><strong>白名单 + 基数上限</strong>：每个租户允许的标签 key 固定；单个 key 的取值基数超过阈值（如 10 万）直接拒绝并告警。</li>
+        <li><strong>保留标签</strong>：<code>tenant</code>、<code>service</code>、<code>env</code>、<code>region</code>、<code>severity</code>、<code>team</code>、<code>alertname</code> 由平台注入，业务不可覆盖。</li>
+        <li><strong>租户隔离</strong>：所有查询强制带 <code>tenant_id</code>；数据库可用行级安全（RLS）兜底，应用层再做一次校验。</li>
+        <li><strong>配额</strong>：每租户的规则数、活跃实例数、通知量、静默数都要有上限；否则一个租户的配置错误会拖垮整个平台。</li>
+      </ul>
+    </section>
+
+    <section id="s7">
+      <div class="sec-head"><span class="sec-num">07</span><h2>系统架构：把状态机放进流水线</h2></div>
+      <p class="sec-lede">告警平台的架构难点不在“组件多”，而在“状态在哪里、谁有权写、失败时降级成什么”。推荐把评估、状态、通知拆成独立服务，用事件流连接，并对每一段定义明确的失败语义。</p>
+
+      <div class="arch">
+        <div class="arch-row">
+          <div class="arch-label">Sources</div>
+          <div class="arch-boxes"><span class="arch-box">Metrics</span><span class="arch-box">Logs</span><span class="arch-box">Traces</span><span class="arch-box">Events</span><span class="arch-box">Synthetic</span><span class="arch-box">CMDB</span></div>
+        </div>
+        <div class="arch-down"><span></span><span><em>ingest / normalize</em></span></div>
+        <div class="arch-row">
+          <div class="arch-label">Detect</div>
+          <div class="arch-boxes"><span class="arch-box core">Rule Evaluator（分片）</span><span class="arch-box core">Alert State Store</span><span class="arch-box">Rule Registry</span></div>
+        </div>
+        <div class="arch-down"><span></span><span><em>state_changed events</em></span></div>
+        <div class="arch-row">
+          <div class="arch-label">Reduce</div>
+          <div class="arch-boxes"><span class="arch-box">Dedup</span><span class="arch-box">Group</span><span class="arch-box warm">Inhibit / Silence</span><span class="arch-box">Route</span></div>
+        </div>
+        <div class="arch-down"><span></span><span><em>notification intent</em></span></div>
+        <div class="arch-row">
+          <div class="arch-label">Deliver</div>
+          <div class="arch-boxes"><span class="arch-box core">Notifier</span><span class="arch-box">SMS / Phone</span><span class="arch-box">IM</span><span class="arch-box">Email</span><span class="arch-box">Ticket</span><span class="arch-box">Webhook</span></div>
+        </div>
+        <div class="arch-down"><span></span><span><em>delivery receipts / escalation</em></span></div>
+        <div class="arch-row">
+          <div class="arch-label">Incident</div>
+          <div class="arch-boxes"><span class="arch-box purple">Incident Service</span><span class="arch-box purple">On-call / Escalation</span><span class="arch-box">Timeline</span><span class="arch-box">ChatOps</span></div>
+        </div>
+        <div class="arch-down"><span></span><span><em>close / postmortem</em></span></div>
+        <div class="arch-row">
+          <div class="arch-label">Learn</div>
+          <div class="arch-boxes"><span class="arch-box">Quality Analytics</span><span class="arch-box">Postmortem</span><span class="arch-box">Rule Lint / Tests</span><span class="arch-box">SLO Registry</span></div>
+        </div>
+        <div class="arch-cross">
+          <b>CROSS-CUTTING</b>
+          <span class="arch-box">Kafka / Event Bus</span><span class="arch-box">Config &amp; Versioning</span><span class="arch-box">Auth / RBAC</span><span class="arch-box">Audit</span><span class="arch-box">Meta-monitor</span>
+        </div>
+      </div>
+
+      <h3>7.1 组件职责与失败语义</h3>
+      <div class="table-wrap">
+        <table>
+          <caption>表 7-1　组件清单：失败时降级成什么</caption>
+          <thead>
+            <tr><th>组件</th><th>职责</th><th>典型失败</th><th>降级策略</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>接入网关</td><td>鉴权、限流、标签校验、规范化</td><td>流量突增 / 非法标签</td><td>按租户限流；拒绝高基数标签；返回明确错误</td></tr>
+            <tr><td>规则评估器</td><td>按周期求值、生成状态迁移</td><td>数据源超时 / 规则 panic</td><td>标记 unknown；隔离单条规则；不阻塞其他规则</td></tr>
+            <tr><td>状态存储</td><td>活跃实例、CAS 更新、快照</td><td>写入超时 / 热点</td><td>本地 WAL + 重试；按 fingerprint 分片</td></tr>
+            <tr><td>抑制 / 静默</td><td>判断通知可见性</td><td>规则环 / 静默服务不可用</td><td>fail-open（宁可多通知）或 fail-closed（按级别）</td></tr>
+            <tr><td>路由器</td><td>标签 → receiver</td><td>无匹配 / 配置错误</td><td>兜底默认路由 + 配置校验</td></tr>
+            <tr><td>通知器</td><td>模板渲染、渠道调用、重试</td><td>渠道限流 / 超时</td><td>退避、切换备用渠道、DLQ</td></tr>
+            <tr><td>升级调度</td><td>超时升级、值班查询</td><td>排班缺口</td><td>广播团队频道 + 元告警</td></tr>
+            <tr><td>事件服务</td><td>事件状态、时间线、协作</td><td>写冲突</td><td>乐观锁 + 幂等命令</td></tr>
+            <tr><td>元监控</td><td>监控告警系统自身</td><td>自身失联</td><td>独立链路 + 外部心跳</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>7.2 端到端数据流</h3>
+      <ol>
+        <li><strong>采集与规范化</strong>：统一标签、单位、时间戳；丢弃高基数与非法标签，并记录丢弃原因。</li>
+        <li><strong>评估</strong>：按 <code>hash(rule_id)</code> 分片；每个分片维护水位线，输出“某个 fingerprint 在某个时刻的状态”。</li>
+        <li><strong>状态写入</strong>：CAS 更新当前实例，同事务追加 <code>alert_event</code> 与 <code>outbox</code>。</li>
+        <li><strong>降噪</strong>：去重 → 分组 → 抑制 / 静默 → 路由；每一步都可解释地记录“为什么被丢弃”。</li>
+        <li><strong>投递</strong>：按渠道优先级排队，幂等发送，记录回执；失败进入重试与死信队列。</li>
+        <li><strong>事件</strong>：首次成功通知后创建/关联事件；ack、升级、恢复、关闭都写时间线。</li>
+        <li><strong>闭环</strong>：复盘、行动项、规则调整；质量指标回流到规则评审。</li>
+      </ol>
+
+      <h3>7.3 一致性与高可用</h3>
+      <p>告警系统不应该追求“恰好一次”，而应该追求<strong>不丢、可去重、可解释</strong>。这三年被反复验证的结论，在 Alertmanager 的 HA 设计里体现得很直接：gossip 复制静默与通知日志，网络分区时选择 fail-open，宁可重复通知也不漏报；Prometheus 应把告警发给所有 Alertmanager 实例，而不是走负载均衡。<sup class="ref"><a href="#ref3">[3]</a></sup></p>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <span class="kicker">WRITE PATH</span>
+          <h4>单写者 + 幂等</h4>
+          <p>以 <code>fingerprint</code> 作为 Kafka 分区键，保证同一告警实例只有一个消费者写入；状态更新带 <code>version</code> 做 CAS；重复消息由 <code>(alert_id, episode, to_state, occurred_at)</code> 唯一约束吸收。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">READ PATH</span>
+          <h4>当前表 + 事件表</h4>
+          <p>当前表服务查询与判定，事件表服务审计与重放。两者在同一事务更新；如果当前表损坏，可以从事件表重建到任意时间点。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">DELIVERY</span>
+          <h4>至少一次 + 幂等键</h4>
+          <p>发送失败可重试；重复发送由渠道侧或幂等键去重。跨副本重复用“通知日志 + 错峰等待”收敛，参考 Alertmanager 的 peer position 机制。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">PARTITION</span>
+          <h4>fail-open，而非静默</h4>
+          <p>网络分区时，允许重复通知，不允许漏报。分区恢复后，静默与通知日志按时间戳合并，后续通知重新去重。</p>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="ic">!</div>
+        <div>
+          <span class="co-title">不要把“高可用”做成“双写”</span>
+          <p>两个评估副本同时写同一 fingerprint，会产生两次 firing、两次通知，甚至状态互相覆盖。正确做法是分片（每个 fingerprint 只有一个 owner）或选主；副本只做热备，不参与写。</p>
+        </div>
+      </div>
+
+      <h3>7.4 容量与性能</h3>
+      <p>三个容易低估的放大点：<strong>规则数 × 评估频率</strong>、<strong>告警组数 × 渠道数</strong>、<strong>事件表 × 保留期</strong>。下面是一组量级示例，用来校准而不是精确预测：</p>
+      <div class="table-wrap">
+        <table>
+          <caption>表 7-2　容量示例：10 万条规则、15 秒评估、5% 命中率</caption>
+          <thead>
+            <tr><th>指标</th><th>估算</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>评估 QPS</td><td>约 6,700/s</td><td>100,000 ÷ 15s；需要按规则分片</td></tr>
+            <tr><td>状态写入 QPS</td><td>约 335/s</td><td>命中率 5%；大部分评估不产生状态变更</td></tr>
+            <tr><td>活跃实例数</td><td>5 万～20 万</td><td>可全量放内存，定期快照</td></tr>
+            <tr><td>通知峰值</td><td>数百/s</td><td>故障时分组会显著削峰，但电话渠道仍是瓶颈</td></tr>
+            <tr><td>事件表增长</td><td>数千万行/月</td><td>必须分区；按 occurred_at 归档</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>7.5 监控告警系统自身</h3>
+      <p>告警平台是“元监控”对象：它挂了，业务告警就没人发。至少要有以下指标，并且走<strong>独立于主链路</strong>的告警通道：</p>
+      <div class="table-wrap">
+        <table>
+          <caption>表 7-3　Meta-monitoring 最小集合</caption>
+          <thead>
+            <tr><th>指标</th><th>含义</th><th>建议阈值</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>评估延迟 p99</td><td>实际求值时间 − 计划求值时间</td><td>&lt; 2 × 评估间隔</td></tr>
+            <tr><td>评估失败率</td><td>失败规则数 / 总规则数</td><td>&lt; 0.1%</td></tr>
+            <tr><td>通知端到端延迟 p99</td><td>firing_at → 渠道回执</td><td>P1 &lt; 60s</td></tr>
+            <tr><td>通知失败率</td><td>最终失败 / 总发送</td><td>&lt; 0.1%</td></tr>
+            <tr><td>通知队列积压</td><td>待发送消息数 / 最老消息年龄</td><td>年龄 &lt; 5 分钟</td></tr>
+            <tr><td>重复通知率</td><td>同幂等键重复送达 / 总送达</td><td>&lt; 1%</td></tr>
+            <tr><td>静默服务可用性</td><td>静默查询成功率</td><td>&gt; 99.9%</td></tr>
+            <tr><td>排班覆盖率</td><td>未来 7 天无 on-call 的时段</td><td>0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="s8">
+      <div class="sec-head"><span class="sec-num">08</span><h2>边界与一致性：真正难的是这些情况</h2></div>
+      <p class="sec-lede">正常路径的状态机只是及格线。乱序、重复、风暴、时钟、规则变更、重启——这些边界才决定系统在生产环境里是否可信。</p>
+
+      <h3>8.1 事件时间与处理时间</h3>
+      <p>告警评估通常基于“事件时间”（指标采样时刻），而状态写入基于“处理时间”。两者可能相差数秒到数分钟，尤其在补数、重放、跨区域传输时。建议：</p>
+      <ul>
+        <li>所有状态判定使用<strong>事件时间</strong>，并维护水位线 <code>watermark = max(event_time) - allowed_lateness</code>。</li>
+        <li>迟到但在允许范围内的数据，允许修正最近一次状态；超出范围的迟到数据只记录、不回写状态，并计入 <code>late_dropped</code> 指标。</li>
+        <li>绝不能用处理时间判断“持续了多久”，否则一次消费积压就会制造大量假恢复或假触发。</li>
+      </ul>
+
+      <h3>8.2 重复、乱序与幂等</h3>
+      <p>消息队列通常保证至少一次，重复不可避免。状态机需要满足<strong>幂等</strong>：同一迁移重复执行，结果不变。实现上分两层：</p>
+      <ul>
+        <li><strong>数据库层</strong>：唯一约束 <code>(alert_id, episode, to_state, occurred_at)</code> 吸收重复事件；状态更新用 <code>WHERE version = ?</code> 做 CAS。</li>
+        <li><strong>业务层</strong>：迁移函数只接受合法前置状态（如只有 firing 才能转 resolved），非法迁移记录为 <code>ignored</code> 而不是报错。</li>
+      </ul>
+
+      <h3>8.3 告警风暴</h3>
+      <p>风暴的根因通常不是“告警太多”，而是<strong>一个故障产生了大量同构告警</strong>。处置顺序应该是：抑制根因 → 分组聚合 → 限流 → 降级为摘要 → 最后才人工静默。</p>
+      <div class="grid grid-2">
+        <div class="card">
+          <span class="kicker">PROTECT</span>
+          <h4>平台侧保护</h4>
+          <p>按租户 / 服务 / 渠道设配额；P1 预留独立配额；队列分级，低级别可延迟；单组通知条数上限；模板渲染失败不阻塞队列。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">INFORM</span>
+          <h4>给人可行动的信息</h4>
+          <p>风暴时只发一条“聚合摘要”，说明影响范围、疑似根因、已抑制数量，并附完整列表链接；不要让人在 500 条消息里找第一条。</p>
+        </div>
+      </div>
+
+      <h3>8.4 级联故障与抑制深度</h3>
+      <p>级联抑制的目标是“只让人看到根因”，但过度抑制会让人看不到真正需要处理的次生故障。建议：</p>
+      <ul>
+        <li>依赖图来自 CMDB / 服务拓扑，而不是手工规则；变更时自动更新。</li>
+        <li>限制抑制链深度（如 3 层），并对“被抑制的 P1”单独计数；如果 P1 被抑制，必须有摘要通知。</li>
+        <li>抑制规则变更走评审，并在预发环境用历史告警回放验证。</li>
+      </ul>
+
+      <h3>8.5 时区、时钟与夏令时</h3>
+      <ul>
+        <li>存储统一 UTC；展示按租户时区；<strong>不要</strong>在数据库里存本地时间。</li>
+        <li>持续时间用单调时钟计算，避免 NTP 回拨导致负时长。</li>
+        <li>静默时段如果使用 <code>time_intervals</code>，必须显式指定 <code>location</code>；否则默认 UTC，跨时区团队会在错误的时间安静。</li>
+        <li>对夏令时切换日，周期任务与“每日摘要”要做一次专项测试。</li>
+      </ul>
+
+      <h3>8.6 规则变更：僵尸告警与重复告警</h3>
+      <div class="table-wrap">
+        <table>
+          <caption>表 8-1　规则生命周期与告警实例的联动</caption>
+          <thead>
+            <tr><th>变更</th><th>对活跃实例的影响</th><th>正确处理</th><th>错误后果</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>修改表达式</td><td>旧实例可能永远不再被求值</td><td>视为新版本：旧实例 resolve（reason=rule_changed），新版本重新计时</td><td>僵尸 firing / 重复告警</td></tr>
+            <tr><td>删除规则</td><td>不再产生评估</td><td>扫描活跃实例并 resolve，发恢复通知</td><td>永远关不掉的告警</td></tr>
+            <tr><td>重命名规则</td><td>fingerprint 变化</td><td>新规则新建实例，旧实例 resolve 并 link</td><td>历史断裂、复发率失真</td></tr>
+            <tr><td>调整 severity</td><td>标签变化导致 fingerprint 变化</td><td>显式迁移：旧实例 resolve，新实例继承 <code>active_at</code></td><td>误判为新故障、重复通知</td></tr>
+            <tr><td>禁用规则</td><td>评估停止</td><td>同删除；可配置是否发恢复通知</td><td>静默地失去监控</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>8.7 重启、部署与重放</h3>
+      <ul>
+        <li><strong>启动宽限期</strong>：重启后不要立刻对“刚加载的旧状态”重发通知；用 1～2 个评估周期做状态对齐。</li>
+        <li><strong>不重放历史通知</strong>：重放事件表只用于重建状态，不应触发真实发送；发送侧要有 <code>replay=false</code> 的保护。</li>
+        <li><strong>滚动升级</strong>：分片迁移时先让新实例接管只读，再切换写入；切换窗口内对同一 fingerprint 保持单写者。</li>
+        <li><strong>规则热加载</strong>：加载失败必须保留旧版本并告警，不能“配置错误 → 全部规则消失 → 所有告警恢复”。</li>
+      </ul>
+    </section>
+
+    <section id="s9">
+      <div class="sec-head"><span class="sec-num">09</span><h2>告警质量：从“响了多少次”到“值不值得响”</h2></div>
+      <p class="sec-lede">告警系统的产出不是通知数量，而是<strong>可行动的信号</strong>。衡量它需要同时看准确率、召回率、检测速度和恢复速度，单看任何一个都会被指标游戏带偏。</p>
+
+      <h3>9.1 四个质量维度</h3>
+      <p>Google SRE Workbook 用四个参数评价告警策略，这套框架同样适用于单条规则和整个平台：<sup class="ref"><a href="#ref4">[4]</a></sup></p>
+      <div class="grid grid-4">
+        <div class="card"><h4>Precision 精确率</h4><p>发出的告警中，真正重要（需要行动）的比例。低精确率 = 狼来了。</p></div>
+        <div class="card"><h4>Recall 召回率</h4><p>重要事件中被检测到的比例。低召回率 = 漏报，通常更危险。</p></div>
+        <div class="card"><h4>Detection 检测时延</h4><p>从故障发生到通知送达的时间。它直接消耗错误预算。</p></div>
+        <div class="card"><h4>Reset 恢复时延</h4><p>故障恢复后告警仍持续的时间。过长会让人忽略后续告警。</p></div>
+      </div>
+
+      <h3>9.2 指标口径</h3>
+      <p>指标定义必须先于看板。尤其是 MTTR：它到底指“指标恢复”“事件解决”还是“影响结束”？建议拆成四个，并在全组织统一口径。</p>
+      <div class="table-wrap">
+        <table>
+          <caption>表 9-1　建议的告警质量指标</caption>
+          <thead>
+            <tr><th>指标</th><th>定义</th><th>参考目标</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Actionable Rate</td><td>产生 ack / 变更 / 工单的通知 ÷ 总通知</td><td>&gt; 80%</td><td>最直接的信噪比指标</td></tr>
+            <tr><td>False Positive Rate</td><td>确认无影响或无需行动的告警 ÷ 总告警</td><td>&lt; 10%</td><td>需要人工标注样本</td></tr>
+            <tr><td>MTTD</td><td>故障开始 → 首次检测</td><td>按级别定义</td><td>依赖故障注入与复盘</td></tr>
+            <tr><td>MTTA</td><td>首次通知 → ack</td><td>P1 &lt; 5 分钟</td><td>衡量值班响应</td></tr>
+            <tr><td>MTTM</td><td>ack → 缓解（影响停止扩大）</td><td>P1 &lt; 30 分钟</td><td>比 MTTR 更接近用户感受</td></tr>
+            <tr><td>MTTR</td><td>ack → 事件 resolved</td><td>P1 &lt; 60 分钟</td><td>需明确是否含观察期</td></tr>
+            <tr><td>Flap Rate</td><td>1 小时内 ≥ 4 次状态迁移的实例 ÷ 活跃实例</td><td>&lt; 5%</td><td>抖动治理的入口</td></tr>
+            <tr><td>Runbook Coverage</td><td>有有效 runbook 的 P1/P2 规则 ÷ 总数</td><td>100%</td><td>没有 runbook 就不该 page</td></tr>
+            <tr><td>Owner Coverage</td><td>有明确 team / owner 的规则 ÷ 总数</td><td>100%</td><td>否则告警无人认领</td></tr>
+            <tr><td>Pages per Shift</td><td>每个 12 小时班次的 P1 通知数</td><td>≤ 2</td><td>超过即触发治理，而不是硬扛</td></tr>
+            <tr><td>Duplicate Rate</td><td>同幂等键重复送达 ÷ 总送达</td><td>&lt; 1%</td><td>平台侧质量</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>9.3 告警评审：每周 30 分钟，砍掉噪音</h3>
+      <p>治理不是一次性项目，而是固定节奏：</p>
+      <ul>
+        <li><strong>每周</strong>：看 Top 10 最吵的告警（按通知数、按人数、按重复次数），逐条决定“修阈值 / 加抑制 / 降级 / 删除”。</li>
+        <li><strong>每月</strong>：审查告警目录，检查 owner、runbook、severity 是否仍然有效；清理无人负责的规则。</li>
+        <li><strong>每季度</strong>：复核 SLO 与阈值；用历史数据回放，评估如果调整参数会少发多少、漏掉多少。</li>
+        <li><strong>每次 P1 复盘</strong>：必须回答“告警是否及时、是否准确、通知是否到达对的人”，并产出至少一条检测层改进。</li>
+      </ul>
+
+      <h3>9.4 告警即代码</h3>
+      <p>规则、路由、抑制、静默模板都应该进 Git，走 CI 与评审。最小实践：</p>
+      <div class="code">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span>.github/workflows/rules.yml<span class="lang">yaml</span></div>
+<pre><span class="k">name</span>: alert-rules
+<span class="k">on</span>: [pull_request]
+<span class="k">jobs</span>:
+  <span class="k">test</span>:
+    <span class="k">runs-on</span>: ubuntu-latest
+    <span class="k">steps</span>:
+      - <span class="k">uses</span>: actions/checkout@v4
+      - <span class="k">name</span>: Validate Prometheus rules
+        <span class="k">run</span>: promtool check rules rules/*.yaml
+      - <span class="k">name</span>: Unit test alert behavior
+        <span class="k">run</span>: promtool test rules tests/*.yaml
+      - <span class="k">name</span>: Lint labels and ownership
+        <span class="k">run</span>: ./scripts/alert-lint --require-owner --require-runbook</pre>
+      </div>
+
+      <p>发布策略建议三级：<strong>shadow</strong>（只记录不通知，观察一周）→ <strong>canary</strong>（单租户 / 单集群生效）→ <strong>full</strong>。删除规则时，先在 shadow 模式下确认没有活跃实例，再执行。</p>
+
+      <h3>9.5 告警预算</h3>
+      <p>把“值班注意力”当成一种有限预算：每个班次最多 2 次 P1 打扰、10 次 P2。超预算不是值班人的问题，而是告警组合的问题。这个机制的好处是把“降噪”从口号变成可执行的约束：当新增一条 P1 规则时，必须说明它将挤占哪一部分预算，或者同时下线一条低价值规则。</p>
+    </section>
+
+    <section id="s10">
+      <div class="sec-head"><span class="sec-num">10</span><h2>SLO 与燃烧率：检测层的上游现代化</h2></div>
+      <p class="sec-lede">阈值告警回答“某个指标是否越界”，SLO 告警回答“用户是否正在失去可靠性”。前者适合定位，后者适合决定要不要半夜叫醒一个人。两者是分层关系，不是替代关系。</p>
+
+      <h3>10.1 为什么阈值告警不够</h3>
+      <ul>
+        <li><strong>阈值与影响脱节。</strong>CPU 80% 可能毫无影响，成功率 99.6% 可能已经在快速消耗预算。</li>
+        <li><strong>精确率低。</strong>固定阈值在低流量时段极其敏感，一次失败请求就能触发。</li>
+        <li><strong>无法排序。</strong>十个阈值同时越界时，无法判断哪个更值得先处理。</li>
+        <li><strong>恢复慢。</strong>长窗口阈值告警在故障恢复后仍持续很久，制造“狼来了”。</li>
+      </ul>
+
+      <h3>10.2 燃烧率：把错误预算变成速度</h3>
+      <p>燃烧率（burn rate）是“当前错误率相对于 SLO 允许错误率的倍数”。燃烧率为 1，表示按当前速度刚好在 SLO 周期结束时用完预算；燃烧率为 14.4，表示 1 小时就消耗掉 2% 的月度预算。</p>
+      <div class="formula">
+        <span class="lbl">BURN RATE</span>
+        burn_rate = error_rate ÷ (1 − SLO)<br>
+        time_to_exhaustion = SLO_window ÷ burn_rate<br><br>
+        <span class="lbl">EXAMPLE · 99.9% SLO / 30 天</span>
+        error_rate = 0.1% → burn_rate = 1 → 30 天耗尽<br>
+        error_rate = 1%   → burn_rate = 10 → 3 天耗尽<br>
+        error_rate = 100% → burn_rate = 1000 → 约 43 分钟耗尽
+      </div>
+
+      <h3>10.3 多窗口、多燃烧率</h3>
+      <p>单窗口燃烧率仍然要在“检测快”和“恢复快”之间二选一。多窗口方案用<strong>长窗口保证精确率、短窗口保证恢复速度</strong>，两者同时超阈值才触发。经验法则是短窗口取长窗口的 1/12。<sup class="ref"><a href="#ref4">[4]</a></sup></p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 10-1　99.9% SLO 的推荐起始参数（来自 Google SRE Workbook）</caption>
+          <thead>
+            <tr><th>级别</th><th>长窗口</th><th>短窗口</th><th>燃烧率</th><th>消耗预算</th><th>通知方式</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>P1</td><td>1 小时</td><td>5 分钟</td><td>14.4×</td><td>2%</td><td>电话 / 即时通知</td></tr>
+            <tr><td>P1</td><td>6 小时</td><td>30 分钟</td><td>6×</td><td>5%</td><td>电话 / 即时通知</td></tr>
+            <tr><td>P3</td><td>3 天</td><td>6 小时</td><td>1×</td><td>10%</td><td>工单</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="small">说明：表中“消耗预算”指触发时已消耗的 SLO 周期预算比例。参数应按服务流量、值班负载和业务容忍度调整；不要为每个服务单独拍一套，先分组复用。</p>
+
+      <div class="code">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span>prometheus/rules/slo-burn.yaml<span class="lang">yaml</span></div>
+<pre><span class="k">groups</span>:
+  - <span class="k">name</span>: slo-burn-rate
+    <span class="k">rules</span>:
+      - <span class="k">alert</span>: CheckoutSLOBurnRateHigh
+        <span class="k">expr</span>: |
+          (
+            job:slo_errors_per_request:ratio_rate1h{job=<span class="s">"checkout"</span>} &gt; 14.4 * 0.001
+            <span class="k">and</span>
+            job:slo_errors_per_request:ratio_rate5m{job=<span class="s">"checkout"</span>} &gt; 14.4 * 0.001
+          )
+          <span class="k">or</span>
+          (
+            job:slo_errors_per_request:ratio_rate6h{job=<span class="s">"checkout"</span>} &gt; 6 * 0.001
+            <span class="k">and</span>
+            job:slo_errors_per_request:ratio_rate30m{job=<span class="s">"checkout"</span>} &gt; 6 * 0.001
+          )
+        <span class="k">labels</span>:
+          <span class="k">severity</span>: page
+          <span class="k">slo</span>: checkout-availability
+        <span class="k">annotations</span>:
+          <span class="k">summary</span>: <span class="s">"checkout 正在快速消耗错误预算"</span>
+          <span class="k">runbook_url</span>: https://runbooks.example.com/checkout-slo</pre>
+      </div>
+
+      <h3>10.4 低流量服务的四个陷阱</h3>
+      <p>SRE Workbook 专门警告：低流量下，单次失败就能造成很高的“错误率”，从而误触发高燃烧率告警。可选对策：</p>
+      <ol>
+        <li><strong>合成流量</strong>：用探针 / 黑盒监控制造稳定分母，但要意识到它可能掩盖真实用户路径的故障。</li>
+        <li><strong>合并服务</strong>：把同一故障域的小服务合并成一个 SLI，降低单点噪声。</li>
+        <li><strong>调整 SLO 或窗口</strong>：承认单次失败的业务影响，不要用 99.99% 的目标去要求一个低频接口。</li>
+        <li><strong>加最小请求数门槛</strong>：请求数低于阈值时，不触发燃烧率告警，改用可用性探测或人工巡检。</li>
+      </ol>
+
+      <h3>10.5 分层：SLO 负责叫人，阈值负责定位</h3>
+      <div class="table-wrap">
+        <table>
+          <caption>表 10-2　两类告警的分工</caption>
+          <thead>
+            <tr><th></th><th>SLO 燃烧率告警</th><th>资源 / 阈值告警</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>回答的问题</td><td>用户是否正在受影响？要不要现在叫人？</td><td>哪里出了问题？哪个实例 / 依赖异常？</td></tr>
+            <tr><td>典型消费者</td><td>值班人、事件指挥官</td><td>排障工程师、自动化修复</td></tr>
+            <tr><td>通知级别</td><td>Page / Ticket</td><td>Ticket / Dashboard / 自动工单</td></tr>
+            <tr><td>精确率要求</td><td>高（不能半夜误报）</td><td>可适当放宽（用于定位）</td></tr>
+            <tr><td>常见错误</td><td>把所有阈值都改成 page</td><td>用资源告警替代用户视角</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout ok">
+        <div class="ic">✓</div>
+        <div>
+          <span class="co-title">落地顺序</span>
+          <p>先为 3～5 个核心用户旅程定义 SLI/SLO，再上多窗口燃烧率；同时保留现有阈值告警作为“诊断层”，但把它的通知级别降为工单或看板。不要一次性迁移所有规则。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="s11">
+      <div class="sec-head"><span class="sec-num">11</span><h2>参考实现：五种值得对照的模型</h2></div>
+      <p class="sec-lede">不需要重新发明状态机。主流系统已经把关键取舍验证过一遍；理解它们“为什么这样分层”，比照抄字段更有价值。</p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 11-1　主流告警系统的生命周期模型对照</caption>
+          <thead>
+            <tr><th>系统</th><th>生命周期模型</th><th>值得借鉴</th><th>需要注意</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Prometheus + Alertmanager</strong></td>
+              <td>规则求值产生 <code>pending / firing</code>；Alertmanager 独立负责分组、抑制、静默、路由与发送</td>
+              <td>检测与通知彻底分离；fingerprint；<code>for</code> / <code>keep_firing_for</code>；抑制与静默只影响通知</td>
+              <td>Alertmanager 不是事件系统；告警本身不持久化，依赖上游重发；HA 为至少一次<sup class="ref"><a href="#ref3">[3]</a></sup></td>
+            </tr>
+            <tr>
+              <td><strong>Grafana Alerting</strong></td>
+              <td><code>Normal / Pending / Alerting</code>，外加 <code>No Data / Error</code> 与 Keep last state</td>
+              <td>把“评估健康度”做成一等状态；状态原因（<code>grafana_state_reason</code>）可解释</td>
+              <td>NoData / Error 会生成独立实例，标签不同，既有静默可能不匹配<sup class="ref"><a href="#ref5">[5]</a></sup></td>
+            </tr>
+            <tr>
+              <td><strong>PagerDuty</strong></td>
+              <td>事件 <code>triggered / acknowledged / resolved</code>；升级策略与排班驱动通知</td>
+              <td>ack 只停止升级；ack 超时回退；事件时间线；无 on-call 不创建事件</td>
+              <td>告警不能 ack，只有事件能 ack；强绑定其排班模型<sup class="ref"><a href="#ref6">[6]</a></sup></td>
+            </tr>
+            <tr>
+              <td><strong>Zabbix</strong></td>
+              <td>触发器（trigger）状态 <code>OK / PROBLEM</code>，事件（event）独立记录；支持依赖、维护期、关联</td>
+              <td>触发器与事件分离；维护窗口；主机 / 服务依赖</td>
+              <td>传统阈值模型为主，SLO / 燃烧率能力弱；大规模下事件表压力大</td>
+            </tr>
+            <tr>
+              <td><strong>夜莺 Nightingale</strong></td>
+              <td>告警规则 → 告警事件 → 告警订阅 / 屏蔽；标签驱动路由</td>
+              <td>国内落地友好；规则、事件、订阅分层清晰；屏蔽与订阅可组合</td>
+              <td>事件协作与复盘能力需结合外部 IM / 工单补齐</td>
+            </tr>
+            <tr>
+              <td><strong>云厂商监控</strong></td>
+              <td>CloudWatch：<code>OK / ALARM / INSUFFICIENT_DATA</code>；Azure Monitor：<code>New / Acknowledged / Closed</code></td>
+              <td><code>INSUFFICIENT_DATA</code> 作为一等状态；托管服务状态机简洁</td>
+              <td>与自建系统集成时要做状态映射，避免 ack / close 语义丢失</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>11.1 三条可复用的结论</h3>
+      <div class="grid grid-3">
+        <div class="card">
+          <span class="kicker">LESSON 01</span>
+          <h4>检测与通知必须分离</h4>
+          <p>规则引擎只对“事实”负责；分组、抑制、路由、重试是另一个服务的事。合在一起会让规则配置承担它不该承担的复杂度。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">LESSON 02</span>
+          <h4>评估健康度要显式</h4>
+          <p>无数据、查询失败、序列消失是第三种事实，不是“正常”也不是“恢复”。给它一个状态，系统才诚实。</p>
+        </div>
+        <div class="card">
+          <span class="kicker">LESSON 03</span>
+          <h4>通知之上还要有事件</h4>
+          <p>通知解决“知道”，事件解决“负责”。没有事件层，ack、升级、MTTA、复盘都无处安放。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="s12">
+      <div class="sec-head"><span class="sec-num">12</span><h2>十二条反模式</h2></div>
+      <p class="sec-lede">下面这些模式在自研系统里反复出现。它们的共同点是：短期看起来省事，长期让告警失去可信度。</p>
+
+      <div class="table-wrap">
+        <table>
+          <caption>表 12-1　反模式、后果与替代方案</caption>
+          <thead>
+            <tr><th>#</th><th>反模式</th><th>后果</th><th>正确做法</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td>用一个 <code>status</code> 承载检测、通知、人的动作</td><td>状态爆炸，任何新需求都要改枚举</td><td>三层状态机 + 关联 ID</td></tr>
+            <tr><td>2</td><td>用 <code>resolved</code> 表示“停止评估”</td><td>数据缺失被伪装成恢复，掩盖故障</td><td>独立的 <code>unknown</code> / NoData 状态</td></tr>
+            <tr><td>3</td><td>只发触发通知，不发恢复通知</td><td>值班人不知道何时可以停手</td><td>曾通知过则必须发 resolved，并附持续时长</td></tr>
+            <tr><td>4</td><td>把 ack 当成 resolve</td><td>事件被提前关闭，故障仍在</td><td>ack 只停止升级；恢复由检测事实驱动</td></tr>
+            <tr><td>5</td><td>抑制 / 静默直接改变告警状态</td><td>解除后无法恢复，历史不可解释</td><td>抑制只影响通知可见性，状态保持不变</td></tr>
+            <tr><td>6</td><td>恢复通知不受抑制约束</td><td>从未收到触发，却收到“已恢复”</td><td>抑制对触发与恢复对称生效</td></tr>
+            <tr><td>7</td><td>标签里塞 request_id、Pod 随机后缀</td><td>基数爆炸，实例永不恢复</td><td>标签白名单 + 基数上限 + lint</td></tr>
+            <tr><td>8</td><td>每条告警单独发一条消息</td><td>一次故障刷屏数百条</td><td>分组 + 条数上限 + 线程更新</td></tr>
+            <tr><td>9</td><td>永久静默、无审计、无到期提醒</td><td>监控被悄悄关掉，无人知晓</td><td>强制到期、原因、工单、审计与摘要</td></tr>
+            <tr><td>10</td><td>没有 <code>for</code>、没有 runbook、没有 owner</td><td>毛刺告警 + 无法行动 + 无人负责</td><td>持续时间、runbook、team 作为上线门槛</td></tr>
+            <tr><td>11</td><td>值班排班有缺口，系统不兜底</td><td>告警发了，没人收到，事件根本没建</td><td>覆盖率检测 + 团队频道兜底 + 元告警</td></tr>
+            <tr><td>12</td><td>只调阈值，不治理告警质量</td><td>噪音转移而非消失，值班持续疲劳</td><td>按 precision / recall / 时延度量并定期评审</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="s13">
+      <div class="sec-head"><span class="sec-num">13</span><h2>落地路线图</h2></div>
+      <p class="sec-lede">不要试图一次做完。按“先有事实、再有降噪、再有协作、最后有治理”的顺序推进，每一阶段都能独立产生价值。</p>
+
+      <div class="table-wrap">
+        <table class="t-phase">
+          <caption>表 13-1　四阶段落地计划（周期按 2～3 人团队估算）</caption>
+          <thead>
+            <tr><th>阶段</th><th>周期</th><th>交付物</th><th>验收标准</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>P0 统一模型</strong></td><td>1～2 周</td>
+              <td>三层状态机、<code>alert_instance</code> / <code>alert_event</code> 表、恢复通知、规则删除联动</td>
+              <td>任取一条告警，能用 SQL 还原完整时间线；恢复通知覆盖率 100%</td>
+            </tr>
+            <tr>
+              <td><strong>P1 降噪与触达</strong></td><td>2～4 周</td>
+              <td>fingerprint、分组、抑制、静默、路由、幂等发送、死信队列</td>
+              <td>通知总量下降 ≥ 50%，P1 送达率不降；每条被抑制的告警都能给出原因</td>
+            </tr>
+            <tr>
+              <td><strong>P2 事件闭环</strong></td><td>3～6 周</td>
+              <td>事件服务、ack / 升级 / 重开 / 合并、排班与兜底、时间线、ChatOps</td>
+              <td>100% P1 有事件；MTTA 可观测；ack 超时自动回退；排班覆盖率 100%</td>
+            </tr>
+            <tr>
+              <td><strong>P3 质量与 SLO</strong></td><td>持续</td>
+              <td>质量看板、周度评审、告警即代码、SLO 燃烧率、复盘行动项跟踪</td>
+              <td>Actionable Rate &gt; 80%；每班 P1 ≤ 2；3～5 个核心 SLO 上线</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout note">
+        <div class="ic">i</div>
+        <div>
+          <span class="co-title">一个反直觉的建议</span>
+          <p>如果只能先做一件事，做<strong>恢复通知与规则删除联动</strong>，而不是分组或抑制。因为它们直接决定“告警是否可信”；一个只会响、不会停的系统，再少的通知也没人信。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="s14">
+      <div class="sec-head"><span class="sec-num">14</span><h2>实施检查清单</h2></div>
+      <p class="sec-lede">上线前逐项打勾；任何一项为“否”，都应在发布说明里写明风险与补偿措施。</p>
+
+      <ul class="checklist">
+        <li class="grp" style="background:none;border:none;padding-left:2px">模型与状态</li>
+        <li><input type="checkbox"><span>检测、通知、事件三层状态是否分离，且有稳定 ID 关联？</span></li>
+        <li><input type="checkbox"><span>是否存在独立的 <code>unknown</code> / NoData 状态，而不是把无数据当作恢复？</span></li>
+        <li><input type="checkbox"><span>所有状态迁移是否有前置状态校验与幂等约束？</span></li>
+        <li><input type="checkbox"><span>触发与恢复是否使用滞回阈值 / 保持期，避免边界抖动？</span></li>
+        <li><input type="checkbox"><span>规则删除、禁用、重命名时，活跃实例是否被正确 resolve 并留下审计？</span></li>
+        <li><input type="checkbox"><span>是否定义了 MTTD / MTTA / MTTM / MTTR 的口径与时间戳？</span></li>
+
+        <li class="grp" style="background:none;border:none;padding-left:2px">通知与降噪</li>
+        <li><input type="checkbox"><span>fingerprint 是否基于规范化标签，且排除了高基数 / 易变字段？</span></li>
+        <li><input type="checkbox"><span>分组键是否包含 route，且有单条通知条数上限？</span></li>
+        <li><input type="checkbox"><span>抑制规则是否做过环检测与深度限制？依赖是否来自拓扑而非手工？</span></li>
+        <li><input type="checkbox"><span>静默是否有强制到期、原因、工单与审计？</span></li>
+        <li><input type="checkbox"><span>发送是否幂等、可重试、有死信队列与失败告警？</span></li>
+        <li><input type="checkbox"><span>升级策略是否有兜底，排班缺口是否被监控？</span></li>
+
+        <li class="grp" style="background:none;border:none;padding-left:2px">事件与协作</li>
+        <li><input type="checkbox"><span>ack 是否只停止升级，且有超时回退？</span></li>
+        <li><input type="checkbox"><span>自动恢复是否有观察期，并检查关键 SLI？</span></li>
+        <li><input type="checkbox"><span>是否有重开窗口与事件合并，避免事件碎片化？</span></li>
+        <li><input type="checkbox"><span>事件时间线是否自动记录状态、通知、ack、评论与变更？</span></li>
+        <li><input type="checkbox"><span>P1/P2 是否有复盘模板与行动项跟踪？</span></li>
+
+        <li class="grp" style="background:none;border:none;padding-left:2px">数据与运维</li>
+        <li><input type="checkbox"><span>状态表与事件表是否同事务写入，是否有 outbox？</span></li>
+        <li><input type="checkbox"><span>事件表是否分区，保留与归档策略是否明确？</span></li>
+        <li><input type="checkbox"><span>是否有单写者 / 分片策略，避免多副本重复触发？</span></li>
+        <li><input type="checkbox"><span>重启、滚动升级、规则热加载是否有宽限期与回滚？</span></li>
+        <li><input type="checkbox"><span>告警平台自身的评估、投递、队列、排班是否有元监控？</span></li>
+
+        <li class="grp" style="background:none;border:none;padding-left:2px">治理</li>
+        <li><input type="checkbox"><span>每条 P1/P2 规则是否有 owner、runbook 与测试？</span></li>
+        <li><input type="checkbox"><span>是否有周度噪音评审与季度阈值复核？</span></li>
+        <li><input type="checkbox"><span>是否度量 Actionable Rate、Flap Rate、Pages per Shift？</span></li>
+        <li><input type="checkbox"><span>是否为核心用户旅程定义了 SLO，并上线燃烧率告警？</span></li>
+      </ul>
+    </section>
+
+    <section id="s15">
+      <div class="sec-head"><span class="sec-num">15</span><h2>参考资料</h2></div>
+      <p class="sec-lede">以下资料按引用顺序排列。部分参数与行为会随版本变化，落地前请以对应版本文档为准。</p>
+      <ol class="refs">
+        <li id="ref1"><a href="https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/" target="_blank" rel="noopener">Prometheus — Alerting rules</a><span>pending / firing 语义、<code>for</code>、<code>keep_firing_for</code>、ALERTS 合成序列。</span></li>
+        <li id="ref2"><a href="https://prometheus.io/docs/alerting/latest/configuration/" target="_blank" rel="noopener">Prometheus — Alertmanager configuration</a><span>路由、分组、抑制、静默、默认值与 webhook 负载格式。</span></li>
+        <li id="ref3"><a href="https://prometheus.io/docs/alerting/latest/high_availability/" target="_blank" rel="noopener">Prometheus — Alertmanager high availability</a><span>gossip 复制、通知日志去重、fail-open、至少一次投递。</span></li>
+        <li id="ref4"><a href="https://sre.google/workbook/alerting-on-slos/" target="_blank" rel="noopener">Google SRE Workbook — Alerting on SLOs</a><span>精确率 / 召回率 / 检测与恢复时延、燃烧率、多窗口参数。</span></li>
+        <li id="ref5"><a href="https://grafana.com/docs/grafana/latest/alerting/fundamentals/alert-rule-evaluation/nodata-and-error-states/" target="_blank" rel="noopener">Grafana — No Data and Error states</a><span>评估健康度、Keep last state、独立告警实例与标签差异。</span></li>
+        <li id="ref6"><a href="https://docs.pagerduty.com/incident-management/incidents/overview" target="_blank" rel="noopener">PagerDuty — Incidents</a><span>triggered / acknowledged / resolved、ack 超时、升级策略、无 on-call 不建事件。</span></li>
+        <li id="ref7"><a href="https://prometheus.io/docs/alerting/latest/overview/" target="_blank" rel="noopener">Prometheus — Alerting overview</a><span>检测与通知分层的总体设计。</span></li>
+        <li id="ref8"><a href="https://sre.google/sre-book/managing-incidents/" target="_blank" rel="noopener">Google SRE Book — Managing Incidents</a><span>事件指挥官、操作负责人、沟通负责人等角色分工。</span></li>
+        <li id="ref9"><a href="https://sre.google/sre-book/postmortem-culture/" target="_blank" rel="noopener">Google SRE Book — Postmortem Culture</a><span>无责复盘、行动项与组织学习。</span></li>
+      </ol>
+    </section>
+
+    <section id="sa">
+      <div class="sec-head"><span class="sec-num">A</span><h2>术语表</h2></div>
+      <div class="table-wrap">
+        <table>
+          <caption>表 A-1　常用术语与容易混淆的概念</caption>
+          <thead>
+            <tr><th>术语</th><th>英文</th><th>含义</th><th>易混淆点</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>告警实例</td><td>alert instance</td><td>某个规则在某个标签组合上的一次活跃状态</td><td>不是“规则”，也不是“通知”</td></tr>
+            <tr><td>指纹</td><td>fingerprint</td><td>标签集合的规范化哈希，用于去重与身份识别</td><td>不要用标题或自增 ID 代替</td></tr>
+            <tr><td>告警组</td><td>alert group</td><td>同一路由下按 <code>group_by</code> 聚合的一组告警</td><td>不是事件；一个事件可含多个组</td></tr>
+            <tr><td>抑制</td><td>inhibition</td><td>存在 source 告警时静音 target 告警</td><td>不是静默；不需要时间窗口</td></tr>
+            <tr><td>静默</td><td>silence</td><td>按匹配器与时间窗口屏蔽通知</td><td>不改变告警状态</td></tr>
+            <tr><td>认领</td><td>acknowledge</td><td>人声明“我来处理”，停止升级</td><td>不等于修复，不等于关闭</td></tr>
+            <tr><td>升级</td><td>escalation</td><td>超时未认领时通知下一层负责人</td><td>不是“提高告警级别”</td></tr>
+            <tr><td>事件</td><td>incident</td><td>承载协作与复盘的故障单元</td><td>不是单条告警</td></tr>
+            <tr><td>MTTA</td><td>mean time to acknowledge</td><td>通知到认领的平均时间</td><td>不含修复时间</td></tr>
+            <tr><td>MTTM</td><td>mean time to mitigate</td><td>认领到影响被控制的时间</td><td>比 MTTR 更贴近用户感受</td></tr>
+            <tr><td>MTTR</td><td>mean time to resolve</td><td>认领到事件解决的平均时间</td><td>必须明确是否含观察期</td></tr>
+            <tr><td>燃烧率</td><td>burn rate</td><td>错误率相对于 SLO 允许值的倍数</td><td>不是错误率本身</td></tr>
+            <tr><td>SLO / SLI</td><td>service level objective / indicator</td><td>目标与度量指标</td><td>SLI 是事实，SLO 是承诺</td></tr>
+            <tr><td>抖动</td><td>flapping</td><td>短窗口内反复触发 / 恢复</td><td>不是“告警数量多”</td></tr>
+            <tr><td>复盘</td><td>postmortem</td><td>故障后的系统性学习过程</td><td>不是追责会</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="sb">
+      <div class="sec-head"><span class="sec-num">B</span><h2>接口契约示例</h2></div>
+      <p class="sec-lede">接口设计应让“状态变更”成为唯一写入口，让“时间线”成为唯一读出口。下面是可直接用于评审的最小契约。</p>
+
+      <h3>B.1 REST 端点</h3>
+      <div class="table-wrap">
+        <table>
+          <caption>表 B-1　最小 API 集合</caption>
+          <thead>
+            <tr><th>方法</th><th>路径</th><th>语义</th><th>幂等键</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>POST</code></td><td><code>/v1/alerts</code></td><td>批量上报告警状态（firing / resolved）</td><td><code>fingerprint + starts_at</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/v1/alerts?state=firing</code></td><td>查询活跃告警</td><td>—</td></tr>
+            <tr><td><code>GET</code></td><td><code>/v1/alerts/{id}/timeline</code></td><td>读取告警时间线</td><td>—</td></tr>
+            <tr><td><code>POST</code></td><td><code>/v1/incidents/{id}:ack</code></td><td>认领事件，停止升级</td><td><code>Idempotency-Key</code></td></tr>
+            <tr><td><code>POST</code></td><td><code>/v1/incidents/{id}:resolve</code></td><td>人工恢复事件</td><td><code>Idempotency-Key</code></td></tr>
+            <tr><td><code>POST</code></td><td><code>/v1/incidents/{id}:reopen</code></td><td>重开已恢复事件</td><td><code>Idempotency-Key</code></td></tr>
+            <tr><td><code>POST</code></td><td><code>/v1/silences</code></td><td>创建静默（必须带 ends_at 与 reason）</td><td><code>Idempotency-Key</code></td></tr>
+            <tr><td><code>GET</code></td><td><code>/v1/routes:preview?labels=...</code></td><td>预演路由与分组结果</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>B.2 Webhook 负载</h3>
+      <div class="code">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span>POST /v1/alerts · webhook payload<span class="lang">json</span></div>
+<pre>{
+  <span class="s">"version"</span>: <span class="s">"1"</span>,
+  <span class="s">"event_id"</span>: <span class="s">"evt_01J9Z3K4T7"</span>,
+  <span class="s">"notification_reason"</span>: <span class="s">"firing"</span>,
+  <span class="s">"group_key"</span>: <span class="s">"checkout|prod|PaymentSuccessRateLow"</span>,
+  <span class="s">"revision"</span>: <span class="n">3</span>,
+  <span class="s">"status"</span>: <span class="s">"firing"</span>,
+  <span class="s">"alerts"</span>: [
+    {
+      <span class="s">"alert_id"</span>: <span class="s">"alt_01J9Z3J8Q2"</span>,
+      <span class="s">"fingerprint"</span>: <span class="s">"9f2c1a7b3e5d4c60"</span>,
+      <span class="s">"status"</span>: <span class="s">"firing"</span>,
+      <span class="s">"labels"</span>: {
+        <span class="s">"alertname"</span>: <span class="s">"PaymentSuccessRateLow"</span>,
+        <span class="s">"service"</span>: <span class="s">"checkout-api"</span>,
+        <span class="s">"env"</span>: <span class="s">"prod"</span>,
+        <span class="s">"severity"</span>: <span class="s">"page"</span>,
+        <span class="s">"team"</span>: <span class="s">"payments"</span>
+      },
+      <span class="s">"annotations"</span>: {
+        <span class="s">"summary"</span>: <span class="s">"支付成功率低于 SLO（92.4%）"</span>,
+        <span class="s">"runbook_url"</span>: <span class="s">"https://runbooks.example.com/payment"</span>
+      },
+      <span class="s">"starts_at"</span>: <span class="s">"2026-11-01T14:07:00+08:00"</span>,
+      <span class="s">"ends_at"</span>: <span class="k">null</span>,
+      <span class="s">"generator_url"</span>: <span class="s">"https://prometheus.example.com/graph?g0.expr=..."</span>
+    }
+  ]
+}</pre>
+      </div>
+
+      <p>三个约定值得写进契约：<strong>（1）</strong><code>ends_at</code> 为 <code>null</code> 表示仍在 firing，避免零值时间被误解析；<strong>（2）</strong><code>revision</code> 在同一组内容变化时递增，接收方可据此去重；<strong>（3）</strong>接收方必须容忍重复与乱序，按 <code>starts_at</code> 与 <code>status</code> 做幂等合并。</p>
+
+      <div class="callout note">
+        <div class="ic">i</div>
+        <div>
+          <span class="co-title">最后一条建议</span>
+          <p>把这份报告里的状态机画在团队白板上，然后用一个真实故障走一遍：从指标越界到复盘关闭，每一步谁写、写什么、失败了怎么办。走不通的地方，就是你们系统下一次出问题的地方。</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div><b>告警生命周期 · 技术研究报告</b>　v1.0 · 2026-11-01</div>
+    <div>示例参数需按业务校准 · 转载请注明来源</div>
+  </div>
+</footer>
+
+<button id="top" type="button" aria-label="回到顶部">↑</button>
+
+<script>
+(function(){
+  var bar = document.getElementById('progress');
+  var topBtn = document.getElementById('top');
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var sections = tocLinks.map(function(a){ return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+
+  function onScroll(){
+    var doc = document.documentElement;
+    var max = doc.scrollHeight - window.innerHeight;
+    var pct = max > 0 ? (window.scrollY / max) * 100 : 0;
+    bar.style.width = Math.min(100, Math.max(0, pct)) + '%';
+    if (window.scrollY > 600) { topBtn.classList.add('show'); } else { topBtn.classList.remove('show'); }
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+
+  topBtn.addEventListener('click', function(){ window.scrollTo({top:0, behavior:'smooth'}); });
+
+  if ('IntersectionObserver' in window) {
+    var current = null;
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting) { current = e.target.id; }
+      });
+      if (!current) return;
+      tocLinks.forEach(function(a){
+        a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+      });
+    }, {rootMargin:'-15% 0px -70% 0px', threshold:0});
+    sections.forEach(function(s){ io.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>
